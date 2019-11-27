@@ -15,6 +15,7 @@ Fall 2019, Section 3
 - To come: Finish the SVM model and add L1 regularization and, if time permits, the kernel trick for capturing non-linearities. Help to implement Baseline Production model (Logistic Regression) and Vector model as comparison.
 
 ## Pri
-
+- To date: Infrastructure setup for collaborative EDA on IBM Cloud. Categorical feature analysis and encoding. Exploration of Spark ML feature extractors and transformers for One-hot categorical encoding and some preliminary EDA. Review Field-aware Factorization Machines. Exploration of LogisticalRegression with Spark ML pipelines.
+-To come: Complete feature engineering and dimentionality reduction for the Categorical variables. Rate and select the most significant features using statistical signifiance tets such as ChiSquare. Save finalized features as parquet file and help implement baseline logistic regression on 10% of training data.
 
 ## Brian
