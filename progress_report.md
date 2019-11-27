@@ -19,3 +19,5 @@ Fall 2019, Section 3
 - To come: Complete feature engineering and dimentionality reduction for the Categorical variables. Rate and select the most significant features using statistical signifiance tets such as ChiSquare. Save finalized features as parquet file and help implement baseline logistic regression on 10% of training data.
 
 ## Brian
+- To date: EDA to gain an understanding o the data, including analyze features for null values and correlation with the outcome and examining the cardinality of the categorical features. Exploring ways to reduce the cardinality of the categorical features. Exploring the effects of feature engineering techniques on the data including normalization, hashing, imputing etc
+- To come: Choose a method to use to handle the high cardinality of some of the categorical features. Narrow down the feature engineering techniques to use and apply them to the data. Implement a Random Forest model
