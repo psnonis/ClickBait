@@ -44,13 +44,13 @@ def initSpark(workingSet, application = 'w261', memory = '240G'):
 
     log(f'Finished Spark Initializing in {ti.time()-start:.3f} Seconds')
     
-def loadData(workingSet):
+def loadData(workingSet, location = '../data'):
 
     start = ti.time()
     
     log(f'Starting Data Loading')
     
-    if  not exists('../data/criteo.parquet.full'):
+    if  not exists(f'{location}/criteo.parquet.full'):
 
         ds = StructType([StructField(f'ctr'    ,  FloatType(), True)                      ] + \
                         [StructField(f'i{f:02}',  FloatType(), True) for f in range(1, 14)] + \
@@ -59,11 +59,11 @@ def loadData(workingSet):
         df = workingSet['sq'].read.format('csv') \
                              .options(header = 'true', delimiter = '\t') \
                              .schema(ds) \
-                             .load('../data/train.txt')
+                             .load(f'{location}/train.txt')
 
-        df.write.parquet('../data/criteo.parquet.full')
+        df.write.parquet(f'{location}/criteo.parquet.full')
 
-    df = workingSet['ss'].read.parquet('../data/criteo.parquet.full')
+    df = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.full')
 
     workingSet['df_full'     ] = df
     workingSet['df_toy'      ] = df.sample(fraction = 0.001, seed = 2019)
@@ -74,24 +74,24 @@ def loadData(workingSet):
     
     log(f'Finished Data Loading in {ti.time()-start:.3f} Seconds')
 
-def splitData(workingSet):
+def splitData(workingSet, location = '../data', ratios = [0.8, 0.1, 0.1]):
 
     start = ti.time()
 
     log(f'Starting Data Splitting')
     
-    if  not exists('../data/criteo.parquet.train') or \
-        not exists('../data/criteo.parquet.test' ) or \
-        not exists('../data/criteo.parquet.dev'  )    :
+    if  not exists(f'{location}/criteo.parquet.train') or \
+        not exists(f'{location}/criteo.parquet.test' ) or \
+        not exists(f'{location}/criteo.parquet.dev'  )    :
 
-        train, test, dev = workingSet['df_full'].randomSplit([0.8, 0.1, 0.1], seed = 2019)
+        train, test, dev = workingSet['df_full'].randomSplit(ratios, seed = 2019)
         
-        train.write.parquet('../data/criteo.parquet.train')
-        test.write.parquet('../data/criteo.parquet.test')
-        dev.write.parquet('../data/criteo.parquet.dev')
+        train.write.parquet(f'{location}/criteo.parquet.train')
+        test.write.parquet(f'{location}/criteo.parquet.test')
+        dev.write.parquet(f'{location}/criteo.parquet.dev')
         
-    workingSet['df_train'] = workingSet['ss'].read.parquet('../data/criteo.parquet.train')
-    workingSet['df_test '] = workingSet['ss'].read.parquet('../data/criteo.parquet.test')
-    workingSet['df_dev'  ] = workingSet['ss'].read.parquet('../data/criteo.parquet.dev')
+    workingSet['df_train'] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.train')
+    workingSet['df_test '] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.test')
+    workingSet['df_dev'  ] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.dev')
     
     log(f'Finished Data Splitting in {ti.time()-start:.3f} Seconds')
