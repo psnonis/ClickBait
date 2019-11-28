@@ -1,13 +1,17 @@
-from common import *
+from common                    import *
+
+from pyspark.sql.functions     import countDistinct, col, when, isnan, count, lit
 
 def categoricalFillNA(workingSet, subset = 'toy', term = 'deadbeef'):
     
     start = ti.time()
 
-    log(f'Starting Categorical FillNA Hashing on {subset}')
+    log(f'Starting Categorical FillNA on {subset}')
 
     df.fillna('deadbeef', workingSet['cat_features'])
 
+    log(f'Finished Categorical FillNA in {ti.time()-start:.3f} Seconds')
+    
 def hashFeatures(workingSet, subset = 'toy'):
 
     start = ti.time()

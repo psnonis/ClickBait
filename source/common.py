@@ -5,7 +5,7 @@ import numpy   as np
 import seaborn as sb
 import time    as ti
 
-from os.path                   import exists
+from os.path                   import exists, dirname, join
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
@@ -24,9 +24,9 @@ def log(msg):
     
     print('\n' + '-' * 80 + '\n' + msg + '\n' + '-' * 80 )
 
-    with open('lr.out', 'a') as out:
-        out.write(msg)
-        
+    with open(join(dirname(__file__), 'log.txt'), 'a') as out:
+        out.write(msg + '\n')
+
     ti.sleep( 3 )
 
 def initSpark(workingSet, application = 'w261', memory = '240G'):
