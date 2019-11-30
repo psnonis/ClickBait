@@ -5,7 +5,8 @@ import numpy   as np
 import seaborn as sb
 import time    as ti
 
-from os.path                   import exists, dirname, join
+from os.path                   import exists, dirname, abspath, join
+from os                        import system
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
@@ -14,7 +15,7 @@ from pyspark.ml                import Pipeline
 
 from pyspark.sql               import SparkSession, SQLContext
 from pyspark.sql.types         import StructType, StructField, StringType, FloatType
-from pyspark.sql.functions     import countDistinct, col
+from pyspark.sql.functions     import countDistinct, col, when
 
 #    ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -44,13 +45,19 @@ def initSpark(workingSet, application = 'w261', memory = '240G'):
 
     log(f'Finished Spark Initializing in {ti.time()-start:.3f} Seconds')
     
-def loadData(workingSet, location = '../data'):
+def loadData(workingSet, data = '../data', clean = False):
 
     start = ti.time()
+    data  = abspath(data)
+    file  = f'{data}/criteo.parquet.full'
+    train = f'{data}/train.txt'
     
-    log(f'Starting Data Loading')
+    log(f'Starting Data Loading at {data}')
     
-    if  not exists(f'{location}/criteo.parquet.full'):
+    if  clean:
+        system(f'rm -rf {data}/criteo.parquet.*')
+    
+    if  not exists(file):
 
         ds = StructType([StructField(f'ctr'    ,  FloatType(), True)                      ] + \
                         [StructField(f'i{f:02}',  FloatType(), True) for f in range(1, 14)] + \
@@ -59,11 +66,11 @@ def loadData(workingSet, location = '../data'):
         df = workingSet['sq'].read.format('csv') \
                              .options(header = 'true', delimiter = '\t') \
                              .schema(ds) \
-                             .load(f'{location}/train.txt')
+                             .load(train)
 
-        df.write.parquet(f'{location}/criteo.parquet.full')
+        df.write.parquet(file)
 
-    df = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.full')
+    df = workingSet['ss'].read.parquet(file)
 
     workingSet['df_full'     ] = df
     workingSet['df_toy'      ] = df.sample(fraction = 0.001, seed = 2019)
@@ -72,26 +79,29 @@ def loadData(workingSet, location = '../data'):
     workingSet['cat_features'] = [c for c in df.columns if 's'       in c]
     workingSet['all_features'] = [c for c in df.columns if 'ctr' not in c]
     
+    workingSet['data'        ] = data
+    
     log(f'Finished Data Loading in {ti.time()-start:.3f} Seconds')
 
-def splitData(workingSet, location = '../data', ratios = [0.8, 0.1, 0.1]):
+def splitData(workingSet, ratios = [0.8, 0.1, 0.1]):
 
     start = ti.time()
 
-    log(f'Starting Data Splitting')
+    log(f'Starting Data Splitting at {ratios}')
     
-    if  not exists(f'{location}/criteo.parquet.train') or \
-        not exists(f'{location}/criteo.parquet.test' ) or \
-        not exists(f'{location}/criteo.parquet.dev'  )    :
+    splits = {}
 
-        train, test, dev = workingSet['df_full'].randomSplit(ratios, seed = 2019)
+    splits['train'], splits['test'], splits['dev'] = workingSet['df_full'].randomSplit(ratios, seed = 2019)
+    
+    for subset in ['train','test','dev']:
         
-        train.write.parquet(f'{location}/criteo.parquet.train')
-        test.write.parquet(f'{location}/criteo.parquet.test')
-        dev.write.parquet(f'{location}/criteo.parquet.dev')
+        file = f'{workingSet["data"]}/criteo.parquet.{subset}'
         
-    workingSet['df_train'] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.train')
-    workingSet['df_test '] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.test')
-    workingSet['df_dev'  ] = workingSet['ss'].read.parquet(f'{location}/criteo.parquet.dev')
+        if  not exists(file):
+            splits[subset].write.parquet(file)
+
+        workingSet[f'df_{subset}'] = workingSet['ss'].read.parquet(file)
+    
+    workingSet['ratios'] = ratios
     
     log(f'Finished Data Splitting in {ti.time()-start:.3f} Seconds')
