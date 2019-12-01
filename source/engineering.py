@@ -4,11 +4,11 @@ from code.common import *
 
 def catFillUndefined(workingSet, subset = 'toy', term = 'deadbeef'):
 
-    when = time()
+    start = time()
 
-    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled'
-    df_i = f'df_{subset}'
-    df_o = f'df_{subset}'
+    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled'
+    df_i  = f'df_{subset}'
+    df_o  = f'df_{subset}'
 
     logMessage(f'Starting Categorical Fill Undefined Terms on {subset}')
 
@@ -22,13 +22,13 @@ def catFillUndefined(workingSet, subset = 'toy', term = 'deadbeef'):
 
     workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    logMessage(f'Finished Categorical Fill Undefined Terms in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Categorical Fill Undefined Terms in {time()-start:.1f} Seconds')
 
 ### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catFindFrequent(workingSet, subset = 'toy', threshold = 180000, fit = False):
     
-    when = time()
+    start = time()
 
     logMessage(f'Starting Categorical Find Frequent Terms on {subset}')
 
@@ -55,7 +55,7 @@ def catFindFrequent(workingSet, subset = 'toy', threshold = 180000, fit = False)
         total_frequent   += len(frequent[feature])
         total_distinct   += len(distinct[feature])
 
-        print(f'{feature} found {len(uncommon[feature]):>8} uncommon categories of {len(distinct[feature]):>8} distinct categories -> {len(frequent[feature]):>3} frequent categories = {frequent[feature]}')
+        print(f'{feature} found {len(uncommon[feature]):>8} uncommon categories of {len(distinct[feature]):>8} distinct categories -> {len(frequent[feature]):>3} frequent categories = {" ".join(frequent[feature])}')
 
     print(f'\nall found {total_uncommon:>8} uncommon categories of {total_distinct:>8} distinct categories -> {total_frequent:>3} frequent categories')
         
@@ -67,17 +67,17 @@ def catFindFrequent(workingSet, subset = 'toy', threshold = 180000, fit = False)
 
         workingSet['threshold'] = threshold
         
-    logMessage(f'Finished Categorical Find Frequent Terms in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Categorical Find Frequent Terms in {time()-start:.1f} Seconds')
 
 ### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catMaskUncommon(workingSet, subset = 'toy', threshold = 180000, term = 'rarebeef'):
 
-    when = time()
+    start = time()
 
-    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}'
-    df_i = f'df_{subset}'
-    df_o = f'df_{subset}_{threshold}'
+    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}'
+    df_i  = f'df_{subset}'
+    df_o  = f'df_{subset}_{threshold}'
 
     logMessage(f'Starting Categorical Mask Uncommon Terms on {subset}')
 
@@ -89,7 +89,7 @@ def catMaskUncommon(workingSet, subset = 'toy', threshold = 180000, term = 'rare
         for feature, uncommon_categories in workingSet['uncommon'].items():
             df = df.replace(uncommon_categories, term)
         """
-        
+
         for feature, frequent_categories in workingSet['frequent'].items():
             df = df.withColumn(feature, when(~df[feature].isin(*frequent_categories), term).otherwise(df[feature]))
 
@@ -97,17 +97,17 @@ def catMaskUncommon(workingSet, subset = 'toy', threshold = 180000, term = 'rare
 
     workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    logMessage(f'Finished Categorical Mask Uncommon Terms in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Categorical Mask Uncommon Terms in {time()-start:.1f} Seconds')
 
 ### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catCodeFeatures(workingSet, subset = 'toy', threshold = 180000, fit = False):
 
-    when = time()
+    start = time()
 
-    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode'
-    df_i = f'df_{subset}_{threshold}'
-    df_i = f'df_{subset}_{threshold}_encode'
+    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode'
+    df_i  = f'df_{subset}_{threshold}'
+    df_o  = f'df_{subset}_{threshold}_encode'
 
     logMessage(f'Starting Categorical Feature Encoding on {subset}')
     
@@ -147,17 +147,17 @@ def catCodeFeatures(workingSet, subset = 'toy', threshold = 180000, fit = False)
 
     workingSet[df_o] = workingSet['ss'].read.parquet(file)
     
-    logMessage(f'Finished Categorical Feature Encoding in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Categorical Feature Encoding in {time()-start:.1f} Seconds')
 
 ### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catPickFeatures(workingSet, subset = 'toy', threshold = 1800000, features = 300):
 
-    when = time()
+    start = time()
 
-    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode.picked-{features}'
-    df_i = f'df_{subset}_{threshold}_encode'
-    df_o = f'df_{subset}_{threshold}_picked'
+    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode.picked-{features}'
+    df_i  = f'df_{subset}_{threshold}_encode'
+    df_o  = f'df_{subset}_{threshold}_picked'
 
     logMessage(f'Starting Feature Selection on {subset}')
     
@@ -174,17 +174,17 @@ def catPickFeatures(workingSet, subset = 'toy', threshold = 1800000, features = 
 
     workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    logMessage(f'Finished Feature Selection in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Feature Selection in {time()-start:.1f} Seconds')
 
 ### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catHashFeatures(workingSet, subset = 'toy', threshold = 180000):
 
-    when = time()
+    start = time()
 
-    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.hashed'
-    df_i = f'df_{subset}_{threshold}_picked'
-    df_o = f'df_{subset}_{threshold}_hashed'
+    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.hashed'
+    df_i  = f'df_{subset}_{threshold}_picked'
+    df_o  = f'df_{subset}_{threshold}_hashed'
 
     features = 2 ** 9
 
@@ -204,4 +204,4 @@ def catHashFeatures(workingSet, subset = 'toy', threshold = 180000):
 
     workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    logMessage(f'Finished Categorical Feature Hashing in {time()-when:.1f} Seconds')
+    logMessage(f'Finished Categorical Feature Hashing in {time()-start:.1f} Seconds')
