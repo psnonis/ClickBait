@@ -1,64 +1,89 @@
-from code.common               import *
+from code.common import *
+
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def catFillUndefined(workingSet, subset = 'toy', term = 'deadbeef'):
 
-    start = ti.time()
-    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled'
+    when = time()
 
-    log(f'Starting Categorical Fill Undefined Terms on {subset}')
+    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled'
+    df_i = f'df_{subset}'
+    df_o = f'df_{subset}'
+
+    logMessage(f'Starting Categorical Fill Undefined Terms on {subset}')
 
     if  not exists(file):
         
-        df = workingSet[f'df_{subset}']
+        df = workingSet[df_i]
 
         df = df.fillna(term, workingSet['cat_features'])
 
         df.write.parquet(file)
 
-    workingSet[f'df_{subset}'] = workingSet['ss'].read.parquet(file)
+    workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    log(f'Finished Categorical Fill Undefined Terms in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Categorical Fill Undefined Terms in {time()-when:.1f} Seconds')
 
-def catFindFrequent(workingSet, subset = 'toy', threshold = 360000, remember = True):
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def catFindFrequent(workingSet, subset = 'toy', threshold = 180000, fit = False):
     
-    start = ti.time()
+    when = time()
 
-    log(f'Starting Categorical Find Frequent Terms on {subset}')
+    logMessage(f'Starting Categorical Find Frequent Terms on {subset}')
 
-    df = workingSet[f'df_{subset}']
+    if  fit:
+        df = workingSet[f'df_{subset}']
+    else:
+        df = workingSet[f'df_{subset}_{threshold}']
 
     distinct = {}
     frequent = {}
     uncommon = {}
-
+    
+    total_distinct = 0
+    total_frequent = 0
+    total_uncommon = 0
+    
     for feature in workingSet['cat_features'] :
         df_count          = df.select(feature).groupBy(feature).count()
         uncommon[feature] = df_count.filter(df_count['count'] <  threshold).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
         frequent[feature] = df_count.filter(df_count['count'] >= threshold).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
         distinct[feature] = uncommon[feature] + frequent[feature]
+        
+        total_uncommon   += len(uncommon[feature])
+        total_frequent   += len(frequent[feature])
+        total_distinct   += len(distinct[feature])
 
-        print(feature, f'found {len(uncommon[feature]):>8} uncommon categories of {len(distinct[feature]):>8} distinct categories -> {len(frequent[feature]):>3} frequent categories = {frequent[feature]}')
+        print(f'{feature} found {len(uncommon[feature]):>8} uncommon categories of {len(distinct[feature]):>8} distinct categories -> {len(frequent[feature]):>3} frequent categories = {frequent[feature]}')
 
-    if  remember:
+    print(f'\nall found {total_uncommon:>8} uncommon categories of {total_distinct:>8} distinct categories -> {total_frequent:>3} frequent categories')
+        
+    if  fit:
 
         workingSet['distinct' ] = distinct
         workingSet['frequent' ] = frequent
         workingSet['uncommon' ] = uncommon
 
         workingSet['threshold'] = threshold
+        
+    logMessage(f'Finished Categorical Find Frequent Terms in {time()-when:.1f} Seconds')
 
-    log(f'Finished Categorical Find Frequent Terms in {ti.time()-start:.3f} Seconds')
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def catMaskUncommon(workingSet, subset = 'toy', term = 'rarebeef'):
+def catMaskUncommon(workingSet, subset = 'toy', threshold = 180000, term = 'rarebeef'):
 
-    start = ti.time()
-    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.frequent-{workingSet["threshold"]}'
+    when = time()
 
-    log(f'Starting Categorical Mask Uncommon Terms on {subset}')
+    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}'
+    df_i = f'df_{subset}'
+    df_o = f'df_{subset}_{threshold}'
+
+    logMessage(f'Starting Categorical Mask Uncommon Terms on {subset}')
 
     if  not exists(file):
         
-        df = workingSet[f'df_{subset}']
+        df = workingSet[df_i]
 
         """
         for feature, uncommon_categories in workingSet['uncommon'].items():
@@ -70,51 +95,113 @@ def catMaskUncommon(workingSet, subset = 'toy', term = 'rarebeef'):
 
         df.write.parquet(file)
 
-    workingSet[f'df_{subset}'] = workingSet['ss'].read.parquet(file)
+    workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    log(f'Finished Categorical Mask Uncommon Terms in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Categorical Mask Uncommon Terms in {time()-when:.1f} Seconds')
 
-def hashFeatures(workingSet, subset = 'toy'):
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    start = ti.time()
-    file  = f'{workingSet["data"]}/criteo.parquet.{subset}.hashed'
+def catCodeFeatures(workingSet, subset = 'toy', threshold = 180000, fit = False):
 
-    log(f'Starting Feature Hashing on {subset}')
+    when = time()
 
+    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode'
+    df_i = f'df_{subset}_{threshold}'
+    df_i = f'df_{subset}_{threshold}_encode'
+
+    logMessage(f'Starting Categorical Feature Encoding on {subset}')
+    
+    df     = workingSet[df_i]
+
+    if  fit:
+
+        stages   = []
+
+        features = workingSet['cat_features']
+        indexes  = [f'{f}_index'  for f in features]
+        vectors  =[ f'{f}_vector' for f in features]
+
+        for feature, index, vector in zip(features, indexes, vectors):
+            indexer  = StringIndexer(inputCol = feature, outputCol = index)
+            encoder  = OneHotEncoderEstimator(inputCols = [indexer.getOutputCol()], outputCols = [vector], dropLast = False) # handleInvalid = 'keep'
+            stages  += [indexer, encoder]
+
+        assembler = VectorAssembler(inputCols = vectors, outputCol = 'features')
+        stages   += [assembler]
+
+        pipeline  = Pipeline(stages = stages)
+        model     = pipeline.fit(df)
+                       
+        workingSet['code_model'] = model
+                       
+    else:
+
+        model = workingSet['code_model']
     
     if  not exists(file):
         
-        features = 33554432
-        hasher   = FeatureHasher(inputCols = workingSet['all_columns'], outputCol = 'features', numFeatures = features )
+        df = model.transform(df)
+        df = df.select(['ctr', 'features']).withColumnRenamed('ctr','label')
 
-        df       = hasher.transform(workingSet[f'df_{subset}'])
-        df       = df.select(['ctr', 'features']).withColumnRenamed('ctr','label')
+        df.write.parquet(file)
 
-        df.write.parquet(f'../data/criteo.parquet.{subset}.hashed')
-      # df.write.partitionBy('label').parquet(f'../data/criteo.parquet.{subset}.hashed')
-
-    workingSet[f'df_{subset}_hashed'] = workingSet['ss'].read.parquet(f'../data/criteo.parquet.{subset}.hashed')
-
-    log(f'Finished Feature Hashing in {ti.time()-start:.3f} Seconds')
-
-def selectFeatures(workingSet, subset = 'toy'):
+    workingSet[df_o] = workingSet['ss'].read.parquet(file)
     
-    start = ti.time()
+    logMessage(f'Finished Categorical Feature Encoding in {time()-when:.1f} Seconds')
+
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def catPickFeatures(workingSet, subset = 'toy', threshold = 1800000, features = 300):
+
+    when = time()
+
+    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.encode.picked-{features}'
+    df_i = f'df_{subset}_{threshold}_encode'
+    df_o = f'df_{subset}_{threshold}_picked'
+
+    logMessage(f'Starting Feature Selection on {subset}')
     
-    log(f'Starting Feature Selection on {subset}')
-    
-    if  not exists(f'../data/criteo.parquet.{subset}.selected'):
+    if  not exists(file):
         
-        features = 1000000
-        selector = ChiSqSelector(numTopFeatures = features, featuresCol = 'features', outputCol = 'selectedFeatures', labelCol = 'label')
+        selector = ChiSqSelector(numTopFeatures = features, featuresCol = 'features', outputCol = 'pickedFeatures', labelCol = 'label')
 
-        df       = workingSet[f'df_{subset}_hashed']
+        df       = workingSet[df_i]
         df       = selector.fit(df).transform(df)
-        df       = df.select(['label', 'selectedFeatures']).withColumnRenamed('selectedFeatures','features')
+        df       = df.select(['label', 'pickedFeatures']).withColumnRenamed('pickedFeatures','features')
         
-        df.write.parquet(f'../data/criteo.parquet.{subset}.selected')
-      # df.write.partitionBy('label').parquet(f'../data/criteo.parquet.{subset}.selected')
+        df.write.parquet(file)
+      # df.write.partitionBy('label').parquet(file)
 
-    workingSet[f'df_{subset}_selected'] = workingSet['ss'].read.parquet(f'../data/criteo.parquet.{subset}.selected')
+    workingSet[df_o] = workingSet['ss'].read.parquet(file)
 
-    log(f'Finished Feature Selection in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Feature Selection in {time()-when:.1f} Seconds')
+
+### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def catHashFeatures(workingSet, subset = 'toy', threshold = 180000):
+
+    when = time()
+
+    file = f'{workingSet["data"]}/criteo.parquet.{subset}.filled.masked-{threshold}.hashed'
+    df_i = f'df_{subset}_{threshold}_picked'
+    df_o = f'df_{subset}_{threshold}_hashed'
+
+    features = 2 ** 9
+
+    logMessage(f'Starting Categorical Feature Hashing on {subset} with {features} numFeatures')
+    
+    if  not exists(file):
+
+        df     = workingSet[df_i]
+        
+        hasher = FeatureHasher(inputCols = workingSet['cat_features'], outputCol = 'features', numFeatures = features )
+
+        df     = hasher.transform(df)
+        df     = df.select(['ctr', 'features']).withColumnRenamed('ctr','label')
+
+        df.write.parquet(file)
+      # df.write.partitionBy('label').parquet(file)
+
+    workingSet[df_o] = workingSet['ss'].read.parquet(file)
+
+    logMessage(f'Finished Categorical Feature Hashing in {time()-when:.1f} Seconds')

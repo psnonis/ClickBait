@@ -3,14 +3,15 @@
 import pandas  as pd
 import numpy   as np
 import seaborn as sb
-import time    as ti
 
+from math                      import log, ceil
+from time                      import sleep, time
 from os.path                   import exists, dirname, abspath, join
 from os                        import system
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
-from pyspark.ml.feature        import ChiSqSelector, StringIndexer, VectorAssembler, Imputer, StandardScaler, FeatureHasher
+from pyspark.ml.feature        import ChiSqSelector, StringIndexer, OneHotEncoderEstimator, VectorAssembler, Imputer, StandardScaler, FeatureHasher
 from pyspark.ml                import Pipeline
 
 from pyspark.sql               import SparkSession, SQLContext
@@ -21,20 +22,20 @@ from pyspark.sql.functions     import countDistinct, col, when
 
 workingSet = {}
 
-def log(msg):
+def logMessage(msg):
     
-    print('\n' + '-' * 80 + '\n' + msg + '\n' + '-' * 80 )
+    print('-' * 80 + '\n' + msg + '\n' + '-' * 80 )
 
     with open(join(dirname(__file__), 'log.txt'), 'a') as out:
         out.write(msg + '\n')
 
-    ti.sleep( 3 )
+  # sleep( 3 )
 
 def initSpark(workingSet, application = 'w261', memory = '240G'):
 
-    start = ti.time()
+    start = time()
     
-    log(f'Starting Spark Initializing')
+    logMessage(f'Starting Spark Initializing')
     
     workingSet['ss'] = SparkSession.builder \
                                    .appName(application) \
@@ -43,16 +44,16 @@ def initSpark(workingSet, application = 'w261', memory = '240G'):
     workingSet['sc'] = workingSet['ss'].sparkContext
     workingSet['sq'] = SQLContext(workingSet['sc'])
 
-    log(f'Finished Spark Initializing in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Spark Initializing in {time()-start:.3f} Seconds')
     
 def loadData(workingSet, data = '../data', clean = False):
 
-    start = ti.time()
+    start = time()
     data  = abspath(data)
     file  = f'{data}/criteo.parquet.full'
     train = f'{data}/train.txt'
     
-    log(f'Starting Data Loading at {data}')
+    logMessage(f'Starting Data Loading at {data}')
     
     if  clean:
         system(f'rm -rf {data}/criteo.parquet.*')
@@ -81,13 +82,13 @@ def loadData(workingSet, data = '../data', clean = False):
     
     workingSet['data'        ] = data
     
-    log(f'Finished Data Loading in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Data Loading in {time()-start:.3f} Seconds')
 
 def splitData(workingSet, ratios = [0.8, 0.1, 0.1]):
 
-    start = ti.time()
+    start = time()
 
-    log(f'Starting Data Splitting at {ratios}')
+    logMessage(f'Starting Data Splitting at {ratios}')
     
     splits = {}
 
@@ -104,4 +105,4 @@ def splitData(workingSet, ratios = [0.8, 0.1, 0.1]):
     
     workingSet['ratios'] = ratios
     
-    log(f'Finished Data Splitting in {ti.time()-start:.3f} Seconds')
+    logMessage(f'Finished Data Splitting in {time()-start:.3f} Seconds')
