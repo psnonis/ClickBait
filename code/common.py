@@ -10,6 +10,7 @@ from math                      import log, ceil
 from time                      import sleep, time
 from os.path                   import exists, dirname, abspath, join
 from os                        import system
+from glob                      import glob
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
@@ -77,16 +78,21 @@ def importData(workingSet, location = '../data', clean = False):
 
         df.write.parquet(file)
 
-    df = workingSet['ss'].read.parquet(file)
+    for parquet in sorted(glob(f'{prefix}.*')):
 
-    workingSet['df.full'     ] = df
+        frame             = parquet.split(f'{prefix}.')[-1]
+        workingSet[frame] = workingSet['ss'].read.parquet(parquet)
+        
+        print(f'Loading Data Frame : {frame}')
+
+    df                         = workingSet[df_o]
 
     workingSet['num_features'] = [f'{c}'          for c in df.columns if 'i'         in c]
     workingSet['std_features'] = [f'{c}_standard' for c in df.columns if 'i'         in c]
     workingSet['cat_features'] = [f'{c}'          for c in df.columns if 's'         in c]
     workingSet['all_features'] = [f'{c}'          for c in df.columns if 'label' not in c]
-    
-    workingSet['prefix'      ] = f'{location}/criteo.parquet'
+
+    workingSet['prefix'      ] = prefix
     
     logMessage(f'Finished Data Importing in {time()-start:.3f} Seconds')
 

@@ -337,7 +337,7 @@ def allPackFeatures(workingSet, subset = 'toy', threshold = 180000, top = 300):
 
         df        = workingSet[df_i]
 
-        assembler = VectorAssembler(inputCols = ['std_features', 'top_features'], outputCol = ['features'])
+        assembler = VectorAssembler(inputCols = ['std_features', 'top_features'], outputCol = 'features')
         
         df        = assembler.transform(df)
         
