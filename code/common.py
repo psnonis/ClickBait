@@ -4,6 +4,8 @@ import pandas  as pd
 import numpy   as np
 import seaborn as sb
 
+
+from itertools                 import chain
 from math                      import log, ceil
 from time                      import sleep, time
 from os.path                   import exists, dirname, abspath, join
@@ -11,12 +13,13 @@ from os                        import system
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
+from pyspark.ml.stat           import Summarizer, Correlation
 from pyspark.ml.feature        import ChiSqSelector, StringIndexer, OneHotEncoderEstimator, VectorAssembler, Imputer, StandardScaler, FeatureHasher
 from pyspark.ml                import Pipeline
 
 from pyspark.sql               import SparkSession, SQLContext
 from pyspark.sql.types         import StructType, StructField, StringType, FloatType
-from pyspark.sql.functions     import countDistinct, col, when
+from pyspark.sql.functions     import countDistinct, col, when, monotonically_increasing_id
 
 #    ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -31,7 +34,7 @@ def logMessage(msg):
 
   # sleep( 3 )
 
-def initSpark(workingSet, application = 'w261', memory = '240G'):
+def setupSpark(workingSet, application = 'w261', memory = '240G'):
 
     start = time()
     
@@ -46,21 +49,24 @@ def initSpark(workingSet, application = 'w261', memory = '240G'):
 
     logMessage(f'Finished Spark Initializing in {time()-start:.3f} Seconds')
     
-def loadData(workingSet, data = '../data', clean = False):
+def importData(workingSet, location = '../data', clean = False):
 
-    start = time()
-    data  = abspath(data)
-    file  = f'{data}/criteo.parquet.full'
-    train = f'{data}/train.txt'
-    
-    logMessage(f'Starting Data Loading at {data}')
+    start  = time()
+    prefix = f'{location}/criteo.parquet'
+    train  = f'{location}/train.txt'
+
+    df_o   = f'df.full'
+
+    file   = f'{prefix}.{df_o}'
+
+    logMessage(f'Starting Data Importing at {location}')
     
     if  clean:
-        system(f'rm -rf {data}/criteo.parquet.*')
+        system(f'rm -rf {location}/criteo.parquet.*')
     
     if  not exists(file):
 
-        ds = StructType([StructField(f'ctr'    ,  FloatType(), True)                      ] + \
+        ds = StructType([StructField(f'label'  ,  FloatType(), True)                      ] + \
                         [StructField(f'i{f:02}',  FloatType(), True) for f in range(1, 14)] + \
                         [StructField(f's{f:02}', StringType(), True) for f in range(1, 27)])
 
@@ -73,35 +79,38 @@ def loadData(workingSet, data = '../data', clean = False):
 
     df = workingSet['ss'].read.parquet(file)
 
-    workingSet['df_full'     ] = df
-    workingSet['df_toy'      ] = df.sample(fraction = 0.001, seed = 2019)
+    workingSet['df.full'     ] = df
 
-    workingSet['num_features'] = [c for c in df.columns if 'i'       in c]
-    workingSet['cat_features'] = [c for c in df.columns if 's'       in c]
-    workingSet['all_features'] = [c for c in df.columns if 'ctr' not in c]
+    workingSet['num_features'] = [f'{c}'          for c in df.columns if 'i'         in c]
+    workingSet['std_features'] = [f'{c}_standard' for c in df.columns if 'i'         in c]
+    workingSet['cat_features'] = [f'{c}'          for c in df.columns if 's'         in c]
+    workingSet['all_features'] = [f'{c}'          for c in df.columns if 'label' not in c]
     
-    workingSet['data'        ] = data
+    workingSet['prefix'      ] = f'{location}/criteo.parquet'
     
-    logMessage(f'Finished Data Loading in {time()-start:.3f} Seconds')
+    logMessage(f'Finished Data Importing in {time()-start:.3f} Seconds')
 
-def splitData(workingSet, ratios = [0.8, 0.1, 0.1]):
+def splitFrame(workingSet, ratios = [0.8, 0.1, 0.1]):
 
-    start = time()
+    start  = time()
+    prefix = workingSet['prefix']
 
     logMessage(f'Starting Data Splitting at {ratios}')
     
     splits = {}
 
-    splits['train'], splits['test'], splits['dev'] = workingSet['df_full'].randomSplit(ratios, seed = 2019)
+    splits['train'], splits['test'], splits['dev'] = workingSet['df.full'].randomSplit(ratios, seed = 2019)
+    splits['toy']                                  = workingSet['df.full'].sample(fraction = 0.001, seed = 2019)
     
-    for subset in ['train','test','dev']:
+    for subset in ['train','test','dev', 'toy']:
         
-        file = f'{workingSet["data"]}/criteo.parquet.{subset}'
-        
+        df_o  = f'df.{subset}'
+        file  = f'{prefix}.{df_o}'
+
         if  not exists(file):
             splits[subset].write.parquet(file)
 
-        workingSet[f'df_{subset}'] = workingSet['ss'].read.parquet(file)
+        workingSet[df_o] = workingSet['ss'].read.parquet(file)
     
     workingSet['ratios'] = ratios
     
