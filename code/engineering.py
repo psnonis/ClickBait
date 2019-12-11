@@ -218,6 +218,8 @@ class Engineering(Common):
         iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, f'encodingPipe-{min:06d}')
 
         if  fit and not exists(oPipe) and iData != None:
+            
+            timePrint(f'Building Model : {oPipe}')
            
             stages   = []
             indexes  = [f'{f}_idx' for f in Common.cat_features]
@@ -235,6 +237,8 @@ class Engineering(Common):
             encoding_model = encoding_pipe.fit(iData)
 
             encoding_model.save(oPipe)
+            
+            timePrint(f'Building Model : Done')
 
         Common.encode_model = PipelineModel.load(oPipe)
 
@@ -258,11 +262,15 @@ class Engineering(Common):
 
         if  fit and not exists(oPipe) and iData != None and top:
 
+            timePrint(f'Building Model : {oPipe}')
+            
             selector       = ChiSqSelector(numTopFeatures = top, featuresCol = 'cat_features', outputCol = 'top_features', labelCol = 'label')
             selector_pipe  = Pipeline(stages = [selector])
             selector_model = selector_pipe.fit(iData)
 
             selector_model.save(oPipe)
+            
+            timePrint(f'Building Model : Done')
 
         Common.select_model = PipelineModel.load(oPipe)
 
@@ -281,7 +289,7 @@ class Engineering(Common):
         width = None
 
         if  fit and not exists(oPipe) and iData != None:
-            
+
             total        = iData.count()
             positive     = iData.filter('label == 1.0').count()
             balance_rate = positive / total
