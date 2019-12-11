@@ -1,350 +1,333 @@
 from code.common import *
 
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+iFile: str = None
+oStep: str = None
+oFile: str = None
+oPipe: str = None
 
-def numCalculateStatistics(workingSet, subset, fit = False):
-    """
-    Calculate descriptive stats on training data for use in standardization
-    Input  : Raw training dataframe
-    Output : Training stats
-    """    
-    
-    start = time()
-    
-    df_i  = f'df.{subset}'
-    
-    logMessage(f'Starting Numerical Feature Statistics Calculation on {subset}')
-    
-    if  fit:
+class Engineering(Common):
 
-        df             = workingSet[df_i]
-        num_features   = workingSet['num_features']
-      # run describe on the numerical features, then put transposed version of results into Pandas
-        num_statistics = df.describe(num_features).toPandas().T
-      # calculate median, adjust indices and column names and add median to pandas dataframe
-        num_medians    = df.approxQuantile(col = num_features, probabilities = [0.5], relativeError = 0.005)
-        num_medians    = list(chain.from_iterable(num_medians))
-        num_statistics = num_statistics.rename(columns = num_statistics.iloc[0])
-        num_statistics = num_statistics.drop(num_statistics.index[0])
+    def stepStarting(step: str, message: str, subset: str, iStep: str, fit:bool = False, model: str = '') -> DataFrame:
 
-        num_statistics['median'] = num_medians
+        global iFile, oFile, oStep, oPipe
 
-        for s in num_statistics.columns:
-            num_statistics[s] = pd.to_numeric(num_statistics[s], downcast = 'float')
-       
-        workingSet['num_statistics'] = num_statistics
-
-    logMessage(f'Finished Numerical Feature Statistics Calculation in {time()-start:.1f} Seconds')
-
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-def numStandardizeFeatures(workingSet, subset):
-    """
-    Apply standardizations to all numerical features to ensure numerical features have balanced weights
-    
-    Input  : Spark Sql Dataframe of original labled data and relevant statistics from training data
-    Output : Spark Sql Dataframe of all labeled data with standardized numeric features
-    """
-
-    start  = time()
-    prefix = workingSet['prefix']
-
-    df_i   = f'df.{subset}'
-    df_o   = f'df.{subset}.normed'
-
-    file   = f'{prefix}.{df_o}'
-    
-    logMessage(f'Starting Numerical Feature Standardization on {subset}')
-
-    if  not exists(file):
+        iFile = f'{Common.prefix}/{subset}.parquet.{iStep}'.strip('.')
+        oStep = f'{                          iStep}.{step}'.strip('.')
+        oFile = f'{Common.prefix}/{subset}.parquet.{oStep}'.strip('.')
+        oPipe = f'{Common.prefix}/model.pickled.{   oStep}.{model}'.strip('.')
         
-        df = workingSet[df_i]
-        
-        num_statistics = workingSet['num_statistics'].to_dict()
+        if  not Common.spark:
+            Common.sparkSetup()
 
-        num_features   = workingSet['num_features'] #              numerical   features
-        std_features   = workingSet['std_features'] # standardized numerical   features
-        cat_features   = workingSet['cat_features'] #              categorical features
+        if  exists(iFile) :
+            
+            if  not exists(oFile) :
+                
+                if  Common.spark:
 
-      # replace all undefined values with the median for that feature
-        df = df.fillna(num_statistics['median'])
+                    timePrint(f'Starting {message} : iFile = {iFile}')
 
-      # add standardized numerical feature columns  
-        df = df.withColumn('i01_standard',((df['i01']                                )/(2.0*num_statistics['stddev']['i01'])))
-        df = df.withColumn('i02_standard',((df['i02']-num_statistics['median']['i02'])/(1.0*num_statistics['stddev']['i02'])))
-        df = df.withColumn('i03_standard',((df['i03']                                )/(1.0*num_statistics['stddev']['i03'])))
-        df = df.withColumn('i04_standard',((df['i04']-num_statistics['median']['i04'])/(1.0*num_statistics['stddev']['i04'])))
-        df = df.withColumn('i05_standard',((df['i05']-num_statistics['median']['i05'])/(1.0*num_statistics['stddev']['i05'])))
-        df = df.withColumn('i06_standard',((df['i06']                                )/(2.0*num_statistics['stddev']['i06'])))
-        df = df.withColumn('i07_standard',((df['i07']                                )/(2.0*num_statistics['stddev']['i07'])))
-        df = df.withColumn('i08_standard',((df['i08']                                )/(2.0*num_statistics['stddev']['i08'])))
-        df = df.withColumn('i09_standard',((df['i09']-num_statistics['median']['i09'])/(1.0*num_statistics['stddev']['i09'])))
-        df = df.withColumn('i10_standard',((df['i10']                                )/(1.0*num_statistics['max'   ]['i10'])))
-        df = df.withColumn('i11_standard',((df['i11']-num_statistics['median']['i11'])/(1.0*num_statistics['stddev']['i11'])))
-        df = df.withColumn('i12_standard',((df['i12']                                )/(2.0*num_statistics['stddev']['i12'])))
-        df = df.withColumn('i13_standard',((df['i13']-num_statistics['median']['i13'])/(1.0*num_statistics['stddev']['i13'])))
+                    return Common.spark.read.parquet(iFile)
 
-        assembler_num = VectorAssembler(inputCols = num_features, outputCol = 'num_features')
-        assembler_std = VectorAssembler(inputCols = std_features, outputCol = 'std_features')
+                else:
 
-        pipeline      = Pipeline(stages = [assembler_num, assembler_std])
+                    timePrint(f'Skipping {message} : iFile = {iFile} : Spark Not Ready')
 
-        df            = pipeline.fit(df).transform(df)
-        df            = df.select('label', 'num_features', 'std_features', *cat_features)
+                    return None
 
-        df.write.parquet(file)
-        
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
+            elif fit and not exists(oPipe):
 
-    logMessage(f'Finished Numerical Feature Standardization in {time()-start:.1f} Seconds')
+                    timePrint(f'Starting {message} : iFile = {iFile}')
 
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                    return Common.spark.read.parquet(iFile)
+                
+            else:
 
-def catFillUndefined(workingSet, subset = 'toy', term = 'deadbeef'):
+                timePrint(f'Skipping {message} : iFile = {iFile}')
 
-    start  = time()
-    prefix = workingSet['prefix']
+                return None
 
-    df_i   = f'df.{subset}.normed'
-    df_o   = f'df.{subset}.normed.filled'
+        else:
 
-    file   = f'{prefix}.{df_o}'
+            timePrint(f'Skipping {message} : iFile = {iFile} : iFile Not Found')
 
-    logMessage(f'Starting Categorical Fill Undefined Terms on {subset}')
+            return None
 
-    if  not exists(file):
-        
-        df = workingSet[df_i]
+    def stepStopping(step: str, message: str, subset: str, oData: DataFrame = None):
 
-      # df = df.drop(*workingSet['num_features'])
+        global iFile, oFile, oStep, oPipe
 
-        df = df.fillna(term, workingSet['cat_features'])
+        if  oData != None:
 
-        df.write.parquet(file)
+            oData.write.parquet(oFile)
 
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
-
-    logMessage(f'Finished Categorical Fill Undefined Terms in {time()-start:.1f} Seconds')
-
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-def catFindFrequent(workingSet, subset = 'toy', threshold = 180000, fit = False):
+        timePrint(f'Stopping {message} : oFile = {oFile}\n')
     
-    start  = time()
-    prefix = workingSet['prefix']
-
-    df_i   = f'df.{subset}.normed.filled'
-    df_e   = f'df.{subset}.normed.filled.masked-{threshold}'
-    
-    logMessage(f'Starting Categorical Find Frequent Terms on {subset}')
-    
-    if  fit:
-        df = workingSet[df_i]
-    else:
-        df = workingSet[df_e] # evaluvate masked dataframe
-
-    distinct = {}
-    frequent = {}
-    uncommon = {}
-    
-    total_distinct = 0
-    total_frequent = 0
-    total_uncommon = 0
-    
-    for feature in workingSet['cat_features'] :
-
-        df_count          = df.select(feature).groupBy(feature).count()
-        uncommon[feature] = df_count.filter(df_count['count'] <  threshold).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
-        frequent[feature] = df_count.filter(df_count['count'] >= threshold).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
-        distinct[feature] = uncommon[feature] + frequent[feature]
-        
-        total_uncommon   += len(uncommon[feature])
-        total_frequent   += len(frequent[feature])
-        total_distinct   += len(distinct[feature])
-
-        print(f'{feature} found {len(uncommon[feature]):>8} uncommon categories of {len(distinct[feature]):>8} distinct categories -> {len(frequent[feature]):>3} frequent categories = {" ".join(frequent[feature])}')
-
-    print(f'\nall found {total_uncommon:>8} uncommon categories of {total_distinct:>8} distinct categories -> {total_frequent:>3} frequent categories')
-        
-    if  fit:
-
-        workingSet['distinct' ] = distinct
-        workingSet['frequent' ] = frequent
-        workingSet['uncommon' ] = uncommon
-
-        workingSet['threshold'] = threshold
-        
-    logMessage(f'Finished Categorical Find Frequent Terms in {time()-start:.1f} Seconds')
-
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-def catMaskUncommon(workingSet, subset = 'toy', threshold = 180000, term = 'rarebeef'):
-
-    start  = time()
-    prefix = workingSet['prefix']
-
-    df_i   = f'df.{subset}.normed.filled'
-    df_o   = f'df.{subset}.normed.filled.masked-{threshold}'
-
-    file   = f'{prefix}.{df_o}'
-    
-    logMessage(f'Starting Categorical Mask Uncommon Terms on {subset}')
-
-    if  not exists(file):
-        
-        df = workingSet[df_i]
-
+    def numDoMeasurement(subset: str, iStep: str, fit: bool = False):
         """
-        for feature, uncommon_categories in workingSet['uncommon'].items():
-            df = df.replace(uncommon_categories, term)
+        Calculate descriptive stats on training data for use in standardization
+        Input  : Raw training dataframe
+        Output : Training stats
+        """    
+
+        global iFile, oFile, oStep, oPipe
+
+        oData = None
+        iData = Engineering.stepStarting('normed', 'Numerical Data Measurement', subset, iStep, fit, 'num_measures')
+
+        if  fit and iData and not exists(oPipe):
+
+          # run describe on the numerical features, then put transposed version of results into Pandas
+            num_measures = iData.describe(Common.num_features).toPandas().T
+          # calculate median, adjust indices and column names and add median to pandas dataframe
+            num_medians  = iData.approxQuantile(col = Common.num_features, probabilities = [0.5], relativeError = 0.005)
+            num_medians  = list(chain.from_iterable(num_medians))
+            num_measures = num_measures.rename(columns = num_measures.iloc[0])
+            num_measures = num_measures.drop(num_measures.index[0])
+
+            num_measures['median'] = num_medians
+
+            for c in num_measures.columns:
+                num_measures[c] = pd.to_numeric(num_measures[c], downcast = 'float')
+
+            dump(num_measures,     open(oPipe, 'wb'))
+
+        Common.num_measures = load(open(oPipe, 'rb'))
+
+        Engineering.stepStopping('normed', 'Numerical Data Measurement', subset, oData)
+
+    def numDoStandardize(subset: str, iStep: str):
+        """
+        Apply standardizations to all numerical features to ensure numerical features have balanced weights
+
+        Input  : Spark Sql Dataframe of original labled data and relevant statistics from training data
+        Output : Spark Sql Dataframe of all labeled data with standardized numeric features
         """
 
-        for feature, frequent_categories in workingSet['frequent'].items():
-            df = df.withColumn(feature, when(~df[feature].isin(*frequent_categories), term).otherwise(df[feature]))
+        global iFile, oFile, oStep
 
-        df.write.parquet(file)
+        oData = None
+        iData = Engineering.stepStarting('normed', 'Numerical Data Standardize', subset, iStep)
 
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
+        if  iData != None:
 
-    logMessage(f'Finished Categorical Mask Uncommon Terms in {time()-start:.1f} Seconds')
+            num_measures = Common.num_measures.to_dict()
 
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+          # replace all undefined values with the median for that feature
+            oData = iData.fillna(num_measures['median'])
+            
+          # add standardized numerical feature columns  
+            oData = oData.withColumn('n01_standard',((oData['n01']                              )/(2.0*num_measures['stddev']['n01'])))
+            oData = oData.withColumn('n02_standard',((oData['n02']-num_measures['median']['n02'])/(1.0*num_measures['stddev']['n02'])))
+            oData = oData.withColumn('n03_standard',((oData['n03']                              )/(1.0*num_measures['stddev']['n03'])))
+            oData = oData.withColumn('n04_standard',((oData['n04']-num_measures['median']['n04'])/(1.0*num_measures['stddev']['n04'])))
+            oData = oData.withColumn('n05_standard',((oData['n05']-num_measures['median']['n05'])/(1.0*num_measures['stddev']['n05'])))
+            oData = oData.withColumn('n06_standard',((oData['n06']                              )/(2.0*num_measures['stddev']['n06'])))
+            oData = oData.withColumn('n07_standard',((oData['n07']                              )/(2.0*num_measures['stddev']['n07'])))
+            oData = oData.withColumn('n08_standard',((oData['n08']                              )/(2.0*num_measures['stddev']['n08'])))
+            oData = oData.withColumn('n09_standard',((oData['n09']-num_measures['median']['n09'])/(1.0*num_measures['stddev']['n09'])))
+            oData = oData.withColumn('n10_standard',((oData['n10']                              )/(1.0*num_measures['max'   ]['n10'])))
+            oData = oData.withColumn('n11_standard',((oData['n11']-num_measures['median']['n11'])/(1.0*num_measures['stddev']['n11'])))
+            oData = oData.withColumn('n12_standard',((oData['n12']                              )/(2.0*num_measures['stddev']['n12'])))
+            oData = oData.withColumn('n13_standard',((oData['n13']-num_measures['median']['n13'])/(1.0*num_measures['stddev']['n13'])))
 
-def catCodeFeatures(workingSet, subset = 'toy', threshold = 180000, fit = False):
+            assembler_num = VectorAssembler(inputCols = Common.num_features, outputCol = 'num_features')
+            assembler_std = VectorAssembler(inputCols = Common.std_features, outputCol = 'std_features')
 
-    start  = time()
-    prefix = workingSet['prefix']
+            pipeline      = Pipeline(stages = [assembler_num, assembler_std])
+            model         = pipeline.fit(oData)
 
-    df_i   = f'df.{subset}.normed.filled.masked-{threshold}'
-    df_o   = f'df.{subset}.normed.filled.masked-{threshold}.encode'
+            oData         = model.transform(oData)
+            oData         = oData.select('label', 'num_features', 'std_features', *Common.cat_features)
 
-    file   = f'{prefix}.{df_o}'
+        Engineering.stepStopping('normed', 'Numerical Data Standardize', subset, oData)
 
-    logMessage(f'Starting Categorical Feature Encoding on {subset}')
-    
-    df = workingSet[df_i]
+    def catFillUndefined(subset: str, iStep: str):
 
-    if  fit:
+        global iFile, oFile, oStep
 
-        stages   = []
+        oData = None
+        iData = Engineering.stepStarting('filled', 'Categorical Fill Undefined', subset, iStep)
 
-        features = workingSet['cat_features']
-        indexes  = [f'{f}_index'  for f in features]
-        vectors  = [f'{f}_vector' for f in features]
+        if  iData != None:
+            
+            oData  = iData.fillna('deadbeef', Common.cat_features)
 
-        for feature, index, vector in zip(features, indexes, vectors):
-            indexer  = StringIndexer(inputCol = feature, outputCol = index)
-            encoder  = OneHotEncoderEstimator(inputCols = [indexer.getOutputCol()], outputCols = [vector], dropLast = False) # handleInvalid = 'keep'
-            stages  += [indexer, encoder]
+        Engineering.stepStopping('filled', 'Categorical Fill Undefined', subset, oData)
 
-        assembler = VectorAssembler(inputCols = vectors, outputCol = 'cat_features')
-        stages   += [assembler]
+    def catFindFrequents(subset: str, iStep: str, fit: bool = False, min: int = 100000):
 
-        pipeline  = Pipeline(stages = stages)
-        model     = pipeline.fit(df)
-                       
-        workingSet['code_model'] = model
-                       
-    else:
+        global iFile, oFile, oStep, oPipe
 
-        model = workingSet['code_model']
-    
-    if  not exists(file):
+        oData = None
+        iData = Engineering.stepStarting(f'masked-{min:06d}', f'Categorical Find Frequents with Threshold of >= {min}', subset, iStep, fit, 'cat_measures')
         
-        df = model.transform(df)
+        if  fit and iData and not exists(oPipe):
 
-        df = df.select(['label', 'num_features', 'std_features', 'cat_features'])
+            cat_distinct = {}
+            cat_frequent = {}
+            cat_uncommon = {}
 
-        df.write.parquet(file)
+            sum_distinct = 0
+            sum_frequent = 0
+            sum_uncommon = 0
 
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
-    
-    logMessage(f'Finished Categorical Feature Encoding in {time()-start:.1f} Seconds')
+            frequent     = f'count >= {min}'
+            uncommon     = f'count <  {min}'
 
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+            for feature in Common.cat_features:
 
-def catPickFeatures(workingSet, subset = 'toy', threshold = 1800000, top = 300):
+                count                 = iData.select(feature ).groupBy(feature).count()
+                cat_uncommon[feature] = count.filter(uncommon).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
+                cat_frequent[feature] = count.filter(frequent).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
+                cat_distinct[feature] = cat_uncommon[feature] + cat_frequent[feature]
+                
+                sum_uncommon += len(cat_uncommon[feature])
+                sum_frequent += len(cat_frequent[feature])
+                sum_distinct += len(cat_distinct[feature])
 
-    start  = time()
-    prefix = workingSet['prefix']
+                timePrint(f'{feature} found {len(cat_frequent[feature]):>7} frequent and {len(cat_uncommon[feature]):>7} uncommon : {sum_frequent:>7} features')
 
-    df_i   = f'df.{subset}.normed.filled.masked-{threshold}.encode'
-    df_o   = f'df.{subset}.normed.filled.masked-{threshold}.encode.picked-{top}'
+            cat_measures = {'distinct' : cat_distinct, 'frequent' : cat_frequent, 'uncommon' : cat_uncommon, 'minimum' : min}
 
-    file   = f'{prefix}.{df_o}'
+            dump(cat_measures,     open(oPipe, 'wb'))
 
-    logMessage(f'Starting Feature Selection on {subset} for {top} features')
-    
-    if  not exists(file):
+        Common.cat_measures = load(open(oPipe, 'rb'))
+            
+        Engineering.stepStopping(f'masked-{min:06d}', f'Categorical Find Frequents with Threshold of >= {min}', subset, oData)
+
+    def catMaskUncommons(subset: str, iStep: str, min: int = 100000):
+
+        global iFile, oFile, oStep, oPipe
+
+        oData = None
+        iData = Engineering.stepStarting(f'masked-{min:06d}', f'Categorical Mask Uncommons with Threshold of <  {min}', subset, iStep)
+
+        if  iData != None:
+
+            oData  = iData
+
+            """
+            for feature, uncommon_categories in Common.cat_measures['uncommon'].items():
+                oData = oData.replace(uncommon_categories, 'rarebeef')
+            """
+
+            for feature, frequent_categories in Common.cat_measures['frequent'].items():
+                oData = oData.withColumn(feature, when(~oData[feature].isin(*frequent_categories), 'rarebeef').otherwise(oData[feature]))
+
+        Engineering.stepStopping(f'masked-{min:06d}', f'Categorical Mask Uncommons with Threshold of <  {min}', subset, oData)
+
+    def catDoCodeFeature(subset: str, iStep: str, fit: bool = False):
+
+        global iFile, oFile, oStep, oPipe
+
+        oData = None
+        iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, 'encodingPipe')
+
+        if  fit and not exists(oPipe) and iData != None:
+           
+            stages   = []
+            indexes  = [f'{f}_idx' for f in Common.cat_features]
+            vectors  = [f'{f}_vec' for f in Common.cat_features]
+
+            for feature, index, vector in zip(Common.cat_features, indexes, vectors):
+                indexer  = StringIndexer(inputCol = feature, outputCol = index)
+                encoder  = OneHotEncoderEstimator(inputCols = [indexer.getOutputCol()], outputCols = [vector], dropLast = False) # handleInvalid = 'keep'
+                stages  += [indexer, encoder]
+
+            assembler = VectorAssembler(inputCols = vectors, outputCol = 'cat_features')
+            stages   += [assembler]
+
+            encoding_pipe  = Pipeline(stages = stages)
+            encoding_model = encoding_pipe.fit(iData)
+
+            encoding_model.save(oPipe)
+
+        Common.encode_model = PipelineModel.load(oPipe)
+
+        if  iData != None and not exists(oFile):
+            
+            oData  = Common.encode_model.transform(iData)
+            oData  = oData.select(['label', 'num_features', 'std_features', 'cat_features'])
+
+        Engineering.stepStopping('encode', 'Categorical One-Hot Encoding', subset, oData)
+
+    def catDoPickFeature(subset: str, iStep: str, fit: bool = False, top: int = 1000):
+
+        global iFile, oFile, oStep, oPipe
+
+        oData = None
+        iData = Engineering.stepStarting(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, iStep, fit, 'selectingPipe')
+
+        width = iData.select('cat_features').first().cat_features.size
+
+        timePrint(f'Reducing from {width} Features to {top} Features')
+
+        if  fit and not exists(oPipe) and iData != None and top:
+
+            selector       = ChiSqSelector(numTopFeatures = top, featuresCol = 'cat_features', outputCol = 'top_features', labelCol = 'label')
+            selector_pipe  = Pipeline(stages = [selector])
+            selector_model = selector_pipe.fit(iData)
+
+            selector_model.save(oPipe)
+
+        Common.select_model = PipelineModel.load(oPipe)
+
+        if  iData != None and top:
+
+            oData  = Common.select_model.transform(iData)
+
+        Engineering.stepStopping(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, oData)
+
+    def allDoPackFeature(subset: str, iStep: str, fit: bool = False):
         
-        selector = ChiSqSelector(numTopFeatures = top, featuresCol = 'cat_features', outputCol = 'top_features', labelCol = 'label')
+        global iFile, oFile, oStep, oPipe
 
-        df       = workingSet[df_i]
-        df       = selector.fit(df).transform(df)
+        oData = None
+        iData = Engineering.stepStarting('packed', 'Packed Final Features', subset, iStep, fit, 'balance_rate')
 
-        df.write.parquet(file)
-      # df.write.partitionBy('label').parquet(file)
+        if  fit and not exists(oPipe) and iData != None:
+            
+            total        = iData.count()
+            positive     = iData.filter('label == 1.0').count()
+            balance_rate = positive / total
 
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
+            dump(balance_rate,     open(oPipe, 'wb'))
 
-    logMessage(f'Finished Feature Selection in {time()-start:.1f} Seconds')
+        Common.balance_rate = load(open(oPipe, 'rb'))
 
-### ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        if  iData != None:
 
-def catHashFeatures(workingSet, subset = 'toy', threshold = 180000, top = 300):
+            features  = ['std_features']
+            features += ['top_features'] if 'top_features' in iData.columns else \
+                        ['cat_features']
+            features += ['cxn_features'] if 'cxn_features' in iData.columns else \
+                        []
 
-    start  = time()
-    prefix = workingSet['prefix']
-
-    df_i   = f'df.{subset}.normed.filled.masked-{threshold}.picked-{top}'
-    df_o   = f'df.{subset}.normed.filled.masked-{threshold}.picked-{top}.hashed'
-
-    file   = f'{prefix}.{df_o}'
-    
-    width  = 2 ** 9
-
-    logMessage(f'Starting Categorical Feature Hashing on {subset} with {features} numFeatures')
-    
-    if  not exists(file):
-
-        df     = workingSet[df_i]
+            assembler    = VectorAssembler(inputCols = features, outputCol = 'features')
+            
+            oData        = assembler.transform(iData)
+            oData        = oData.select('label', 'features')
+            oData        = oData.withColumn('weight', when(oData.label == 0.0, 1.0 * Common.balance_rate).otherwise(1.0 - Common.balance_rate))
+            
+        Engineering.stepStopping('packed', 'Packed Final Features', subset, oData)
         
-        hasher = FeatureHasher(inputCols = workingSet['cat_features'], outputCol = 'features', numFeatures = width)
-
-        df     = hasher.transform(df)
-        df     = df.select(['label', 'features'])
-
-        df.write.parquet(file)
-      # df.write.partitionBy('label').parquet(file)
-
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
-
-    logMessage(f'Finished Categorical Feature Hashing in {time()-start:.1f} Seconds')
-
-def allPackFeatures(workingSet, subset = 'toy', threshold = 180000, top = 300):
-    
-    start  = time()
-    prefix = workingSet['prefix']
-
-    df_i   = f'df.{subset}.normed.filled.masked-{threshold}.encode.picked-{top}'
-    df_o   = f'df.{subset}.normed.filled.masked-{threshold}.encode.picked-{top}.packed'
-
-    file   = f'{prefix}.{df_o}'
-
-    logMessage(f'Starting Feature Packing on {subset}')
-    
-    if  not exists(file):
-
-        df        = workingSet[df_i]
-
-        assembler = VectorAssembler(inputCols = ['std_features', 'top_features'], outputCol = 'features')
+    def toyTakeSubSample(subset: str, iStep: str, len: int = 1000):
         
-        df        = assembler.transform(df)
-        
-        df        = df.select('label', 'features')
+        global iFile, oFile, oStep, oPipe
 
-        df.write.parquet(file)
+        oData = None
+        iData = Engineering.stepStarting('toy', 'Take Toy Sample', subset, iStep)
         
-    workingSet[df_o] = workingSet['ss'].read.parquet(file)
-    
-    logMessage(f'Finished Feature Packing in {time()-start:.1f} Seconds')
+        if  iData != None:
+            
+            oData  = iData.orderBy(rand(seed = 2019)).limit(len)
+            
+            width  = oData.head().features.size
+            count  = oData.count()
+            click  = oData.filter("label==1").count()
+            ratio  = f'{click/count*100:.2f}'
+            
+            timePrint(f'toy {subset} {width}x{count} = {ratio}% clicks')
+
+        Engineering.stepStopping('toy', 'Take Toy Sample', subset, oData)

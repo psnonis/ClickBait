@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-
 import pandas  as pd
 import numpy   as np
 import seaborn as sb
-
 
 from itertools                 import chain
 from math                      import log, ceil
@@ -11,113 +8,120 @@ from time                      import sleep, time
 from os.path                   import exists, dirname, abspath, join
 from os                        import system
 from glob                      import glob
+from pickle                    import dump, load
+from datetime                  import datetime
 
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg         import Vectors
 from pyspark.ml.stat           import Summarizer, Correlation
 from pyspark.ml.feature        import ChiSqSelector, StringIndexer, OneHotEncoderEstimator, VectorAssembler, Imputer, StandardScaler, FeatureHasher
-from pyspark.ml                import Pipeline
+from pyspark.ml                import Pipeline, PipelineModel
 
-from pyspark.sql               import SparkSession, SQLContext
-from pyspark.sql.types         import StructType, StructField, StringType, FloatType
-from pyspark.sql.functions     import countDistinct, col, when, monotonically_increasing_id
+from pyspark.sql               import SparkSession, DataFrame
+from pyspark.sql.types         import StructType, StructField, IntegerType, StringType, FloatType
+from pyspark.sql.functions     import countDistinct, col, when, rand
 
-#    ---------------------------------------------------------------------------------------------------------------------------------
+from typing                    import List, Dict, Tuple, Any
 
-workingSet = {}
-
-def logMessage(msg):
+def timePrint(message: str):
     
-    print('-' * 80 + '\n' + msg + '\n' + '-' * 80 )
-
-    with open(join(dirname(__file__), 'log.txt'), 'a') as out:
-        out.write(msg + '\n')
-
-  # sleep( 3 )
-
-def setupSpark(workingSet, application = 'w261', memory = '240G'):
-
-    start = time()
+    timeStamp = datetime.now().strftime('%H:%M:%S')
+    output    = f'[{timeStamp}] : {message}'
     
-    logMessage(f'Starting Spark Initializing')
+    print(output)
     
-    workingSet['ss'] = SparkSession.builder \
-                                   .appName(application) \
-                                   .config('spark.driver.memory', memory) \
-                                   .getOrCreate()
-    workingSet['sc'] = workingSet['ss'].sparkContext
-    workingSet['sq'] = SQLContext(workingSet['sc'])
+    with open('messages.txt', 'a') as log:
+        log.write(output + '\n')
 
-    logMessage(f'Finished Spark Initializing in {time()-start:.3f} Seconds')
+class Common(object):
+
+    prefix = 'data'
+    spark  = None
+
+    num_features = [f'n{f:02d}'          for f in range(1, 13+1)]
+    std_features = [f'n{f:02d}_standard' for f in range(1, 13+1)]
+    cat_features = [f'c{f:02d}'          for f in range(1, 26+1)]
     
-def importData(workingSet, location = '../data', clean = False):
+    cat_uncommon = {}
+    cat_frequent = {}
+    cat_distinct = {}
 
-    start  = time()
-    prefix = f'{location}/criteo.parquet'
-    train  = f'{location}/train.txt'
+    num_measures = {}
+    cat_measures = {}
 
-    df_o   = f'df.full'
+    def setupSpark(application = 'w261', memory = '220G'):
 
-    file   = f'{prefix}.{df_o}'
+        timePrint('Starting Spark Initialization')
 
-    logMessage(f'Starting Data Importing at {location}')
-    
-    if  clean:
-        system(f'rm -rf {location}/criteo.parquet.*')
-    
-    if  not exists(file):
+        Common.spark = SparkSession.builder \
+            .appName(application) \
+            .config('spark.driver.memory', memory) \
+            .getOrCreate()
 
-        ds = StructType([StructField(f'label'  ,  FloatType(), True)                      ] + \
-                        [StructField(f'i{f:02}',  FloatType(), True) for f in range(1, 14)] + \
-                        [StructField(f's{f:02}', StringType(), True) for f in range(1, 27)])
+        timePrint('Stopping Spark Initialization\n')
 
-        df = workingSet['sq'].read.format('csv') \
-                             .options(header = 'true', delimiter = '\t') \
-                             .schema(ds) \
-                             .load(train)
+    def importData(location: str = 'data', clean: bool = False):
 
-        df.write.parquet(file)
-
-    for parquet in sorted(glob(f'{prefix}.*')):
-
-        frame             = parquet.split(f'{prefix}.')[-1]
-        workingSet[frame] = workingSet['ss'].read.parquet(parquet)
+        timePrint('Starting Data Import')
         
-        print(f'Loading Data Frame : {frame}')
-
-    df                         = workingSet[df_o]
-
-    workingSet['num_features'] = [f'{c}'          for c in df.columns if 'i'         in c]
-    workingSet['std_features'] = [f'{c}_standard' for c in df.columns if 'i'         in c]
-    workingSet['cat_features'] = [f'{c}'          for c in df.columns if 's'         in c]
-    workingSet['all_features'] = [f'{c}'          for c in df.columns if 'label' not in c]
-
-    workingSet['prefix'      ] = prefix
-    
-    logMessage(f'Finished Data Importing in {time()-start:.3f} Seconds')
-
-def splitFrame(workingSet, ratios = [0.8, 0.1, 0.1]):
-
-    start  = time()
-    prefix = workingSet['prefix']
-
-    logMessage(f'Starting Data Splitting at {ratios}')
-    
-    splits = {}
-
-    splits['train'], splits['test'], splits['dev'] = workingSet['df.full'].randomSplit(ratios, seed = 2019)
-    splits['toy']                                  = workingSet['df.full'].sample(fraction = 0.001, seed = 2019)
-    
-    for subset in ['train','test','dev', 'toy']:
+        Common.prefix = f'{location}'
         
-        df_o  = f'df.{subset}'
-        file  = f'{prefix}.{df_o}'
+        frame = f'whole'
+        train = f'{location}/{frame}.zip'
+        whole = f'{location}/{frame}.parquet'
 
-        if  not exists(file):
-            splits[subset].write.parquet(file)
+        if  clean:
 
-        workingSet[df_o] = workingSet['ss'].read.parquet(file)
-    
-    workingSet['ratios'] = ratios
-    
-    logMessage(f'Finished Data Splitting in {time()-start:.3f} Seconds')
+            system(f'rm -rf {location}/*.parquet.*')
+            system(f'rm -rf {location}/*.parquet.*')
+            system(f'rm -rf {location}/*.parquet.*')
+
+            system(f'rm -rf {location}/*.pickled.*')
+
+        if  not exists(whole):
+
+            schema = StructType([StructField(f'label', IntegerType(), True)                             ] + \
+                                [StructField(f'{f}',     FloatType(), True) for f in Common.num_features] + \
+                                [StructField(f'{f}',    StringType(), True) for f in Common.cat_features])
+
+            criteo = Common.spark.read.format('csv') \
+                .options(header = 'false', delimiter = '\t') \
+                .schema(schema) \
+                .load(train)
+
+            criteo.write.parquet(whole)
+
+        timePrint('Stopping Data Import\n')
+
+    def splitsData(ratios = [0.8, 0.1, 0.1]):
+
+        timePrint("Starting Data Splits")
+
+        splits = {}
+        whole  = Common.spark.read.parquet(f'{Common.prefix}/whole.parquet')
+
+        splits['train'], splits['tests'], splits['valid'] = whole.randomSplit(ratios, seed = 2019)
+
+        for subset in ['train','tests','valid']:
+
+            path  = f'{Common.prefix}/{subset}.parquet'
+
+            if  not exists(path):
+                splits[subset].write.parquet(path)
+
+        timePrint('Stopping Data Splits\n')
+
+    def imp(subset, step):
+        
+        df = Engineering.spark.read.parquet(f'data/{subset}.parquet.{step}')
+        
+        return df
+
+    def pdf(path, rows = 20, filter = ''):
+        
+        df = Engineering.spark.read.parquet(path)
+        
+        if  filter:
+            df = df.filter(filter)
+
+        return pd.DataFrame(df.take(rows), columns = df.columns)
