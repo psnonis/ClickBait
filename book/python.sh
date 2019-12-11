@@ -1,6 +1,6 @@
 clear
 /usr/local/spark/bin/spark-submit \
 --verbose \
---driver-memory 240G \
+--driver-memory 220G \
 --master local[*] \
-prep.py
+$1

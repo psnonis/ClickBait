@@ -161,7 +161,7 @@ class Engineering(Common):
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting('', 'Categorical Data Measurement', subset, iStep, fit = True)
+        iData = Engineering.stepStarting('', 'Categorical Data Measures ', subset, iStep, fit = True)
         oPipe = f'{Common.prefix}/model.pickled.cat_measures'
 
         if  iData and not exists(oPipe):
@@ -179,9 +179,9 @@ class Engineering(Common):
 
         Common.cat_measures = load(open(oPipe, 'rb'))
 
-        Engineering.stepStopping('', 'Categorical Data Measurement', subset, oData)
+        Engineering.stepStopping('', 'Categorical Data Measures ', subset, oData)
         
-    def catMaskUncommons(subset: str, iStep: str, min: int = 100000):
+    def catMaskUncommons(subset: str, iStep: str, min: int):
 
         global iFile, oFile, oStep, oPipe
 
@@ -210,12 +210,12 @@ class Engineering(Common):
                 
         Engineering.stepStopping(f'masked-{min:06d}', f'Categorical Mask Uncommons with Threshold of <  {min}', subset, oData)
 
-    def catDoCodeFeature(subset: str, iStep: str, fit: bool = False):
+    def catDoCodeFeature(subset: str, iStep: str, min: int, fit: bool = False):
 
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, 'encodingPipe')
+        iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, f'encodingPipe-{min:06d}')
 
         if  fit and not exists(oPipe) and iData != None:
            
@@ -245,7 +245,7 @@ class Engineering(Common):
 
         Engineering.stepStopping('encode', 'Categorical One-Hot Encoding', subset, oData)
 
-    def catDoPickFeature(subset: str, iStep: str, fit: bool = False, top: int = 1000):
+    def catDoPickFeature(subset: str, iStep: str, top: int, fit: bool = False):
 
         global iFile, oFile, oStep, oPipe
 
