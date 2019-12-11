@@ -72,11 +72,11 @@ class Common(object):
 
         if  clean:
 
-            system(f'rm -rf {location}/*.parquet.*')
-            system(f'rm -rf {location}/*.parquet.*')
-            system(f'rm -rf {location}/*.parquet.*')
+            system(f'rm -rf {location}/train.parquet.*')
+            system(f'rm -rf {location}/tests.parquet.*')
+            system(f'rm -rf {location}/valid.parquet.*')
 
-            system(f'rm -rf {location}/*.pickled.*')
+            system(f'rm -rf {location}/model.pickled.*')
 
         if  not exists(whole):
 
@@ -113,13 +113,13 @@ class Common(object):
 
     def imp(subset, step):
         
-        df = Engineering.spark.read.parquet(f'data/{subset}.parquet.{step}')
+        df = Common.spark.read.parquet(f'data/{subset}.parquet.{step}')
         
         return df
 
     def pdf(path, rows = 20, filter = ''):
         
-        df = Engineering.spark.read.parquet(path)
+        df = Common.spark.read.parquet(path)
         
         if  filter:
             df = df.filter(filter)

@@ -7,17 +7,18 @@ oPipe: str = None
 
 class Engineering(Common):
 
-    def stepStarting(step: str, message: str, subset: str, iStep: str, fit:bool = False, model: str = '') -> DataFrame:
+    def stepStarting(step: str, message: str, subset: str, iStep: str = '', fit:bool = False, model: str = '') -> DataFrame:
 
         global iFile, oFile, oStep, oPipe
 
         iFile = f'{Common.prefix}/{subset}.parquet.{iStep}'.strip('.')
         oStep = f'{                          iStep}.{step}'.strip('.')
         oFile = f'{Common.prefix}/{subset}.parquet.{oStep}'.strip('.')
-        oPipe = f'{Common.prefix}/model.pickled.{   oStep}.{model}'.strip('.')
+        oPipe = f'{Common.prefix}/model.pickled.{   model}'.strip('.')
         
         if  not Common.spark:
-            Common.sparkSetup()
+
+            Common.sparkSetup(application = 'engineering')
 
         if  exists(iFile) :
             
@@ -63,19 +64,20 @@ class Engineering(Common):
 
         timePrint(f'Stopping {message} : oFile = {oFile}\n')
     
-    def numDoMeasurement(subset: str, iStep: str, fit: bool = False):
+    def numDoMeasurement(subset: str, iStep: str):
         """
         Calculate descriptive stats on training data for use in standardization
         Input  : Raw training dataframe
-        Output : Training stats
+        Output : Numerical training stats
         """    
 
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting('normed', 'Numerical Data Measurement', subset, iStep, fit, 'num_measures')
+        iData = Engineering.stepStarting('', '  Numerical Data Measurement', subset, iStep, fit = True)
+        oPipe = f'{Common.prefix}/model.pickled.num_measures'
 
-        if  fit and iData and not exists(oPipe):
+        if  iData and not exists(oPipe):
 
           # run describe on the numerical features, then put transposed version of results into Pandas
             num_measures = iData.describe(Common.num_features).toPandas().T
@@ -94,14 +96,15 @@ class Engineering(Common):
 
         Common.num_measures = load(open(oPipe, 'rb'))
 
-        Engineering.stepStopping('normed', 'Numerical Data Measurement', subset, oData)
-
-    def numDoStandardize(subset: str, iStep: str):
+        Engineering.stepStopping('', '  Numerical Data Measurement', subset, oData)
+        
+    def allDoStandardize(subset: str, iStep: str):
         """
-        Apply standardizations to all numerical features to ensure numerical features have balanced weights
+        Apply standardizations to all numerical features to ensure numerical features have balanced weights.
+        Replace all undefined categorical values with deadbeef.
 
         Input  : Spark Sql Dataframe of original labled data and relevant statistics from training data
-        Output : Spark Sql Dataframe of all labeled data with standardized numeric features
+        Output : Spark Sql Dataframe of all labeled data with standardized numeric features and filled categoric features
         """
 
         global iFile, oFile, oStep
@@ -138,64 +141,40 @@ class Engineering(Common):
             model         = pipeline.fit(oData)
 
             oData         = model.transform(oData)
-            oData         = oData.select('label', 'num_features', 'std_features', *Common.cat_features)
+            oData         = oData.select('label', 'std_features', *Common.cat_features).fillna('deadbeef', Common.cat_features)
 
         Engineering.stepStopping('normed', 'Numerical Data Standardize', subset, oData)
 
-    def catFillUndefined(subset: str, iStep: str):
-
-        global iFile, oFile, oStep
-
-        oData = None
-        iData = Engineering.stepStarting('filled', 'Categorical Fill Undefined', subset, iStep)
-
-        if  iData != None:
-            
-            oData  = iData.fillna('deadbeef', Common.cat_features)
-
-        Engineering.stepStopping('filled', 'Categorical Fill Undefined', subset, oData)
-
-    def catFindFrequents(subset: str, iStep: str, fit: bool = False, min: int = 100000):
+    def catDoMeasurement(subset: str, iStep: str):
+        """
+        Calculate descriptive stats on training data for use in standardization
+        Input  : Raw training dataframe
+        Output : Categorical training stats
+        """    
 
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting(f'masked-{min:06d}', f'Categorical Find Frequents with Threshold of >= {min}', subset, iStep, fit, 'cat_measures')
-        
-        if  fit and iData and not exists(oPipe):
+        iData = Engineering.stepStarting('', 'Categorical Data Measurement', subset, iStep, fit = True)
+        oPipe = f'{Common.prefix}/model.pickled.cat_measures'
 
-            cat_distinct = {}
-            cat_frequent = {}
-            cat_uncommon = {}
+        if  iData and not exists(oPipe):
 
-            sum_distinct = 0
-            sum_frequent = 0
-            sum_uncommon = 0
-
-            frequent     = f'count >= {min}'
-            uncommon     = f'count <  {min}'
+            cat_measures = {}
 
             for feature in Common.cat_features:
-
-                count                 = iData.select(feature ).groupBy(feature).count()
-                cat_uncommon[feature] = count.filter(uncommon).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
-                cat_frequent[feature] = count.filter(frequent).sort('count', ascending = False).select(feature).rdd.flatMap(list).collect()
-                cat_distinct[feature] = cat_uncommon[feature] + cat_frequent[feature]
-                
-                sum_uncommon += len(cat_uncommon[feature])
-                sum_frequent += len(cat_frequent[feature])
-                sum_distinct += len(cat_distinct[feature])
-
-                timePrint(f'{feature} found {len(cat_frequent[feature]):>7} frequent and {len(cat_uncommon[feature]):>7} uncommon : {sum_frequent:>7} features')
-
-            cat_measures = {'distinct' : cat_distinct, 'frequent' : cat_frequent, 'uncommon' : cat_uncommon, 'minimum' : min}
+                cat_measures[feature] = iData.select(feature).groupBy(feature).count() \
+                    .sort('count', ascending = False) \
+                    .withColumnRenamed(feature,  'value') \
+                    .withColumnRenamed('count', 'counts') \
+                .toPandas()
 
             dump(cat_measures,     open(oPipe, 'wb'))
 
         Common.cat_measures = load(open(oPipe, 'rb'))
-            
-        Engineering.stepStopping(f'masked-{min:06d}', f'Categorical Find Frequents with Threshold of >= {min}', subset, oData)
 
+        Engineering.stepStopping('', 'Categorical Data Measurement', subset, oData)
+        
     def catMaskUncommons(subset: str, iStep: str, min: int = 100000):
 
         global iFile, oFile, oStep, oPipe
@@ -212,9 +191,17 @@ class Engineering(Common):
                 oData = oData.replace(uncommon_categories, 'rarebeef')
             """
 
-            for feature, frequent_categories in Common.cat_measures['frequent'].items():
-                oData = oData.withColumn(feature, when(~oData[feature].isin(*frequent_categories), 'rarebeef').otherwise(oData[feature]))
-
+            total = 0
+            
+            for feature, measure in Common.cat_measures.items():
+                
+                frequent = measure[measure.counts > min].value.to_list()
+                oData    = oData.withColumn(feature, when(~oData[feature].isin(*frequent), 'rarebeef').otherwise(oData[feature]))
+                count    = oData.select(feature).groupBy(feature).count().count()
+                total   += count
+                
+              # timePrint(f'{feature} : {count:>6} : {total:>6}')
+                
         Engineering.stepStopping(f'masked-{min:06d}', f'Categorical Mask Uncommons with Threshold of <  {min}', subset, oData)
 
     def catDoCodeFeature(subset: str, iStep: str, fit: bool = False):
@@ -232,7 +219,7 @@ class Engineering(Common):
 
             for feature, index, vector in zip(Common.cat_features, indexes, vectors):
                 indexer  = StringIndexer(inputCol = feature, outputCol = index)
-                encoder  = OneHotEncoderEstimator(inputCols = [indexer.getOutputCol()], outputCols = [vector], dropLast = False) # handleInvalid = 'keep'
+                encoder  = OneHotEncoderEstimator(inputCols = [indexer.getOutputCol()], outputCols = [vector], dropLast = False)
                 stages  += [indexer, encoder]
 
             assembler = VectorAssembler(inputCols = vectors, outputCol = 'cat_features')
@@ -248,7 +235,7 @@ class Engineering(Common):
         if  iData != None and not exists(oFile):
             
             oData  = Common.encode_model.transform(iData)
-            oData  = oData.select(['label', 'num_features', 'std_features', 'cat_features'])
+            oData  = oData.select(['label', 'std_features', 'cat_features'])
 
         Engineering.stepStopping('encode', 'Categorical One-Hot Encoding', subset, oData)
 
@@ -257,7 +244,7 @@ class Engineering(Common):
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, iStep, fit, 'selectingPipe')
+        iData = Engineering.stepStarting(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, iStep, fit, f'selectingPipe-{top:06d}')
 
         width = iData.select('cat_features').first().cat_features.size
 
