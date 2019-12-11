@@ -243,6 +243,7 @@ object Engineering extends Common {
         
         if (iData != null) {
             
+            
             val interaction = new Interaction()
                 .setInputCols(Array("std_features", "cat_features"))
                 .setOutputCol("cxn_features")

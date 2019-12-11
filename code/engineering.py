@@ -19,6 +19,12 @@ class Engineering(Common):
         if  not Common.spark:
 
             Common.sparkSetup(application = 'engineering')
+            
+        if  exists(iFile) and not exists(f'{iFile}/_SUCCESS'):
+            system(f'rm -rf {iFile}')
+
+        if  exists(oFile) and not exists(f'{oFile}/_SUCCESS'):
+            system(f'rm -rf {oFile}')
 
         if  exists(iFile) :
             
@@ -74,7 +80,7 @@ class Engineering(Common):
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting('', '  Numerical Data Measurement', subset, iStep, fit = True)
+        iData = Engineering.stepStarting('', 'Numerical Data Measurement', subset, iStep, fit = True)
         oPipe = f'{Common.prefix}/model.pickled.num_measures'
 
         if  iData and not exists(oPipe):
@@ -96,7 +102,7 @@ class Engineering(Common):
 
         Common.num_measures = load(open(oPipe, 'rb'))
 
-        Engineering.stepStopping('', '  Numerical Data Measurement', subset, oData)
+        Engineering.stepStopping('', 'Numerical Data Measurement', subset, oData)
         
     def allDoStandardize(subset: str, iStep: str):
         """
