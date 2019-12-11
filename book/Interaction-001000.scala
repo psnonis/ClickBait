@@ -1,7 +1,7 @@
 class Common {
     
     import org.apache.spark.sql.{SparkSession, DataFrame}
-
+    
     var prefix  : String       = "data"
     var spark   : SparkSession = null
     
@@ -34,44 +34,54 @@ object Interaction extends Common {
     import org.apache.spark.ml.{Pipeline, PipelineModel}
     import org.apache.spark.ml.feature.{Interaction, VectorAssembler}
     import org.apache.spark.sql.{DataFrame}
+    import org.apache.spark.ml.linalg.{SparseVector,DenseVector}
     import org.apache.spark.sql.functions.{col}
 
     import reflect.io._, Path._
+    import sys.process._
 
-    var iFrame: String = null
-    var oStage: String = null
-    var oFrame: String = null
-    var oModel: String = null
+    var iFile: String = null
+    var oStep: String = null
+    var oFile: String = null
+    var oPipe: String = null
     
-    def taskStarting(stage: String, message: String, subset: String, iStage: String): DataFrame = {
+    def taskStarting(step: String, message: String, subset: String, iStep: String): DataFrame = {
     
-        iFrame = f"$prefix/$subset.parquet.$iStage"
-        oStage = f"$iStage.$stage"
-        oFrame = f"$prefix/$subset.parquet.$oStage"
-        oModel = f"$prefix/model.pickled.$oStage"
+        iFile = f"$prefix/$subset.parquet.$iStep"
+        oStep = f"$iStep.$step"
+        oFile = f"$prefix/$subset.parquet.$oStep"
+        oPipe = f"$prefix/model.pickled.$oStep"
 
-        timePrint(f"Starting $message : iFrame = $iFrame")
+        timePrint(f"Starting $message : iFile = $iFile")
         
-        if (iFrame.toDirectory.exists && !oFrame.toDirectory.exists) {
-            return spark.read.parquet(iFrame)
+        if (iFile.toDirectory.exists && !f"${iFile}/_SUCCESS".toFile.exists) {
+            f"rm -rf ${iFile}" !
+        }
+
+        if (oFile.toDirectory.exists && !f"${oFile}/_SUCCESS".toFile.exists) {
+            f"rm -rf ${oFile}" !
+        }
+        
+        if (iFile.toDirectory.exists && !oFile.toDirectory.exists) {
+            return spark.read.parquet(iFile)
         }
         else {
             return null
         }
     }
 
-    def taskStopping(stage: String, message: String, subset: String, oData: DataFrame) {
+    def taskStopping(step: String, message: String, subset: String, oData: DataFrame) {
 
-        if (oData != null) {
-            oData.write.parquet(oFrame)
+        if (oData != null && !oFile.toDirectory.exists) {
+            oData.write.parquet(oFile)
         }
 
-        timePrint(f"Stopping $message : oFrame = $oFrame\n")
+        timePrint(f"Stopping $message : oFile = $oFile\n")
     }
     
-    def allJoinInteract(subset: String, iStage: String) {
+    def allJoinInteract(subset: String, iStep: String) {
 
-        var iData: DataFrame = taskStarting("action", "Numerical vs Categorical Interactions", subset, iStage)
+        var iData: DataFrame = taskStarting("action", "Numerical vs Categorical Interactions", subset, iStep)
         var oData: DataFrame = null
         
         if (iData != null) {
@@ -85,10 +95,11 @@ object Interaction extends Common {
         taskStopping("action", "Numerical vs Categorical Interactions", subset, oData)
     }
 
-    def allPackFeatures(subset: String, iStage: String) {
+    def allPackFeatures(subset: String, iStep: String) {
 
-        var iData: DataFrame = taskStarting("packed", "Final Feature Pack", subset, iStage)
+        var iData: DataFrame = taskStarting("packed", "Final Feature Pack", subset, iStep)
         var oData: DataFrame = null
+        var width: Int       = 0
         
         if (iData != null) {
             val assembler = new VectorAssembler()
@@ -96,6 +107,12 @@ object Interaction extends Common {
                 .setOutputCol("features")
             
             oData = assembler.transform(iData)
+
+            width = oData.first().getAs[SparseVector]("features").size
+
+            oFile = f"${oFile}-${width}%06d"
+            
+            timePrint("Final Feature Count = ${width}")
         }
 
         taskStopping("packed", "Final Feature Pack", subset, oData)

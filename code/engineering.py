@@ -64,7 +64,7 @@ class Engineering(Common):
 
         global iFile, oFile, oStep, oPipe
 
-        if  oData != None:
+        if  oData != None and not exists(oFile):
 
             oData.write.parquet(oFile)
 
@@ -278,6 +278,7 @@ class Engineering(Common):
 
         oData = None
         iData = Engineering.stepStarting('packed', 'Packed Final Features', subset, iStep, fit, 'balance_rate')
+        width = None
 
         if  fit and not exists(oPipe) and iData != None:
             
@@ -290,7 +291,7 @@ class Engineering(Common):
         Common.balance_rate = load(open(oPipe, 'rb'))
 
         if  iData != None:
-
+            
             features  = ['std_features']
             features += ['top_features'] if 'top_features' in iData.columns else \
                         ['cat_features']
@@ -303,8 +304,14 @@ class Engineering(Common):
             oData        = oData.select('label', 'features')
             oData        = oData.withColumn('weight', when(oData.label == 0.0, 1.0 * Common.balance_rate).otherwise(1.0 - Common.balance_rate))
             
+            width        = oData.first().features.size
+
+            oFile        = f'{oFile}.{width:06d}'
+            
+            timePrint(f'Final Feature Count = {width}')
+
         Engineering.stepStopping('packed', 'Packed Final Features', subset, oData)
-        
+
     def toyTakeSubSample(subset: str, iStep: str, len: int = 1000):
         
         global iFile, oFile, oStep, oPipe
