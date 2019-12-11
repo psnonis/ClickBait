@@ -10,6 +10,9 @@ class Evaluation(Common):
 
     def eval(estimator, evaluator, dataframe = 'normed.filled.masked-180000.encode.picked-000300.packed', features = 'features', weighting = False, **params):
 
+        print('\n' + '=' * 120 + '\n')
+        
+
         frames = {}
         widths = {}
         predis = {}
