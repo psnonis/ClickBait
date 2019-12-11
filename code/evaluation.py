@@ -10,8 +10,9 @@ class Evaluation(Common):
 
     def eval(estimator, evaluator, dataframe = 'normed.filled.masked-180000.encode.picked-000300.packed', features = 'features', weighting = False, **params):
 
-        print('\n' + '=' * 120 + '\n')
-        
+        timePrint('')
+        timePrint('=' * 120)
+        timePrint('')
 
         frames = {}
         widths = {}
@@ -20,9 +21,9 @@ class Evaluation(Common):
         
         name   = estimator.__name__
 
-        timePrint(f"{name} : Frame : {dataframe}")        
-        timePrint(f"{name} : Rebal : {weighting}")
-        timePrint(f"{name} : Param : {params}")
+        timePrint(f"{name} : Frames : {dataframe}")        
+        timePrint(f"{name} : Weight : {weighting}")
+        timePrint(f"{name} : Params : {params}")
 
         for subset in ['train', 'tests', 'valid']:
 
@@ -46,6 +47,8 @@ class Evaluation(Common):
 
         if  frames.get('train'):
         
+            timePrint(f"{name} :  Width : {widths['train']} Features")
+
             model = estimator.fit(frames['train'])
 
         training  = time()
@@ -60,8 +63,8 @@ class Evaluation(Common):
             
             scores[subset] = evaluator.evaluate(predis[subset])
             
-        timePrint(f"{name} : Elaps : {time() - start:.1f} Seconds")
+        timePrint(f"{name} :  Elaps : {time() - start:.1f} Seconds")
         
         for subset in scores:
             
-            timePrint(f"{name} : {subset.title()} : Width = {widths[subset]} : Score = {scores[subset]*100:.2f}%")
+            timePrint(f"{name} :  {subset.title()} : Score = {scores[subset]*100:.2f}%")
