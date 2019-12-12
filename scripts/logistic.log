@@ -1,0 +1,169 @@
+[22:42:06] : Starting Spark Initialization
+[22:42:07] : Stopping Spark Initialization
+
+[22:42:07] : Starting Data Import
+[22:42:07] : Stopping Data Import
+
+[22:42:07] : 
+[22:42:07] : ========================================================================================================================
+[22:42:07] : 
+[22:42:07] : LinearSVC : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[22:42:07] : LinearSVC : Weight : False
+[22:42:07] : LinearSVC : Params : {'maxIter': 100, 'regParam': 0.0}
+[22:42:12] : LinearSVC :  Width : 1000 Features
+[23:46:34] : LinearSVC :  Elaps : 3862.5 Seconds
+[23:46:34] : LinearSVC :  Train : Score = 68.69%
+[23:46:34] : LinearSVC :  Tests : Score = 68.70%
+[23:46:34] : LinearSVC :  Valid : Score = 68.64%
+[23:55:26] : Starting Spark Initialization
+[23:55:28] : Stopping Spark Initialization
+
+[23:55:28] : Starting Data Import
+[23:56:24] : Starting Spark Initialization
+[01:03:25] : Starting Spark Initialization
+[01:03:27] : Stopping Spark Initialization
+
+[01:03:27] : Starting Data Import
+[01:03:47] : Starting Spark Initialization
+[01:03:49] : Stopping Spark Initialization
+
+[01:03:49] : 
+[01:03:49] : ========================================================================================================================
+[01:03:49] : 
+[01:03:49] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[01:03:49] : LogisticRegression : Weight : False
+[01:03:49] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:03:53] : LogisticRegression :  Width : 1000 Features
+[01:07:07] : LogisticRegression :  Elaps : 194.3 Seconds
+[01:07:07] : LogisticRegression :  Train : Score = 73.64%
+[01:07:07] : LogisticRegression :  Tests : Score = 73.65%
+[01:07:07] : LogisticRegression :  Valid : Score = 73.63%
+[01:07:07] : 
+[01:07:07] : ========================================================================================================================
+[01:07:07] : 
+[01:07:07] : LogisticRegression : Frames : normed.masked-001000.encode.packed-036168
+[01:07:07] : LogisticRegression : Weight : False
+[01:07:07] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:07:10] : LogisticRegression :  Width : 36168 Features
+[01:11:42] : LogisticRegression :  Elaps : 271.7 Seconds
+[01:11:42] : LogisticRegression :  Train : Score = 77.57%
+[01:11:42] : LogisticRegression :  Tests : Score = 77.49%
+[01:11:42] : LogisticRegression :  Valid : Score = 77.48%
+[01:11:42] : 
+[01:11:42] : ========================================================================================================================
+[01:11:42] : 
+[01:11:42] : LogisticRegression : Frames : normed.masked-000500.encode.packed-056507
+[01:11:42] : LogisticRegression : Weight : False
+[01:11:42] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:11:45] : LogisticRegression :  Width : 56507 Features
+[01:16:43] : LogisticRegression :  Elaps : 298.8 Seconds
+[01:16:43] : LogisticRegression :  Train : Score = 77.88%
+[01:16:43] : LogisticRegression :  Tests : Score = 77.75%
+[01:16:43] : LogisticRegression :  Valid : Score = 77.75%
+[01:16:43] : 
+[01:16:43] : ========================================================================================================================
+[01:16:43] : 
+[01:16:43] : LogisticRegression : Frames : normed.masked-001000.encode.action.packed-506183
+[01:16:43] : LogisticRegression : Weight : False
+[01:16:43] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:44:21] : Starting Spark Initialization
+[01:44:22] : Stopping Spark Initialization
+
+[01:44:22] : 
+[01:44:22] : ========================================================================================================================
+[01:44:22] : 
+[01:44:22] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.action.packed-013831
+[01:44:22] : LogisticRegression : Weight : False
+[01:44:22] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:44:22] : LogisticRegression :  Elaps : 0.0 Seconds
+[01:50:31] : Starting Spark Initialization
+[01:50:33] : Stopping Spark Initialization
+
+[01:50:33] : 
+[01:50:33] : ========================================================================================================================
+[01:50:33] : 
+[01:50:33] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.action.packed-016463
+[01:50:33] : LogisticRegression : Weight : False
+[01:50:33] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[01:50:39] : LogisticRegression :  Width : 16463 Features
+[02:06:46] : LogisticRegression :  Elaps : 967.4 Seconds
+[02:06:46] : LogisticRegression :  Train : Score = 75.04%
+[02:06:46] : LogisticRegression :  Tests : Score = 75.01%
+[02:06:46] : LogisticRegression :  Valid : Score = 74.99%
+[02:19:53] : Starting Spark Initialization
+[02:19:55] : Stopping Spark Initialization
+
+[02:19:55] : 
+[02:19:55] : ========================================================================================================================
+[02:19:55] : 
+[02:19:55] : LogisticRegression : Frames : normed.masked-001000.encode.action.packed-506183
+[02:19:55] : LogisticRegression : Weight : False
+[02:19:55] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[02:26:48] : Starting Spark Initialization
+[02:26:50] : Stopping Spark Initialization
+
+[02:26:50] : Starting Data Import
+[02:27:19] : Starting Spark Initialization
+[02:27:21] : Stopping Spark Initialization
+
+[02:27:21] : Skipping Numerical Data Measurement : iFile = data/train.parquet : iFile Not Found
+[02:27:21] : Stopping Numerical Data Measurement : oFile = data/train.parquet
+
+[02:27:21] : Skipping Numerical Data Standardize : iFile = data/train.parquet : iFile Not Found
+[02:27:21] : Stopping Numerical Data Standardize : oFile = data/train.parquet.normed
+
+[02:27:21] : Skipping Numerical Data Standardize : iFile = data/tests.parquet : iFile Not Found
+[02:27:21] : Stopping Numerical Data Standardize : oFile = data/tests.parquet.normed
+
+[02:27:21] : Skipping Numerical Data Standardize : iFile = data/valid.parquet : iFile Not Found
+[02:27:21] : Stopping Numerical Data Standardize : oFile = data/valid.parquet.normed
+
+[02:27:21] : Starting Categorical Data Measures  : iFile = data/train.parquet.normed
+[02:27:30] : Stopping Categorical Data Measures  : oFile = data/train.parquet.normed
+
+[02:27:30] : Starting Categorical Mask Uncommons with Threshold of <  100 : iFile = data/train.parquet.normed
+[02:34:28] : Stopping Categorical Mask Uncommons with Threshold of <  100 : oFile = data/train.parquet.normed.masked-000100
+
+[02:34:28] : Starting Categorical Mask Uncommons with Threshold of <  100 : iFile = data/tests.parquet.normed
+[02:40:11] : Stopping Categorical Mask Uncommons with Threshold of <  100 : oFile = data/tests.parquet.normed.masked-000100
+
+[02:40:11] : Starting Categorical Mask Uncommons with Threshold of <  100 : iFile = data/valid.parquet.normed
+[02:46:44] : Stopping Categorical Mask Uncommons with Threshold of <  100 : oFile = data/valid.parquet.normed.masked-000100
+
+[02:46:44] : Starting Categorical One-Hot Encoding : iFile = data/train.parquet.normed.masked-000100
+[02:46:44] : Building Model : data/model.pickled.encodingPipes-000100
+[02:47:50] : Building Model : Done
+[02:52:32] : Stopping Categorical One-Hot Encoding : oFile = data/train.parquet.normed.masked-000100.encode
+
+[02:52:32] : Starting Categorical One-Hot Encoding : iFile = data/tests.parquet.normed.masked-000100
+[02:53:33] : Stopping Categorical One-Hot Encoding : oFile = data/tests.parquet.normed.masked-000100.encode
+
+[02:53:33] : Starting Categorical One-Hot Encoding : iFile = data/valid.parquet.normed.masked-000100
+[02:55:10] : Stopping Categorical One-Hot Encoding : oFile = data/valid.parquet.normed.masked-000100.encode
+
+[02:55:10] : Starting Packed Final Features : iFile = data/train.parquet.normed.masked-000100.encode
+[02:55:18] : Final Feature Count = 159275
+[02:57:32] : Stopping Packed Final Features : oFile = data/train.parquet.normed.masked-000100.encode.packed.159275
+
+[02:57:32] : Starting Packed Final Features : iFile = data/tests.parquet.normed.masked-000100.encode
+[02:57:39] : Final Feature Count = 159275
+[02:58:47] : Stopping Packed Final Features : oFile = data/tests.parquet.normed.masked-000100.encode.packed.159275
+
+[02:58:47] : Starting Packed Final Features : iFile = data/valid.parquet.normed.masked-000100.encode
+[02:58:52] : Final Feature Count = 159275
+[02:59:50] : Stopping Packed Final Features : oFile = data/valid.parquet.normed.masked-000100.encode.packed.159275
+
+[19:18:39] : Starting Spark Initialization
+[19:18:42] : Stopping Spark Initialization
+
+[19:18:42] : 
+[19:18:42] : ========================================================================================================================
+[19:18:42] : 
+[19:18:42] : LogisticRegression : Frames : normed.masked-000100.encode.packed.159275
+[19:18:42] : LogisticRegression : Weight : False
+[19:18:42] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[19:19:06] : LogisticRegression :  Width : 159275 Features
+[19:31:11] : LogisticRegression :  Elaps : 725.3 Seconds
+[19:31:11] : LogisticRegression :  Train : Score = 78.41%
+[19:31:11] : LogisticRegression :  Tests : Score = 78.08%
+[19:31:11] : LogisticRegression :  Valid : Score = 78.09%

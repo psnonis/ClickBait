@@ -1,6 +1,7 @@
-import pandas  as pd
-import numpy   as np
-import seaborn as sb
+import pandas            as pd
+import numpy             as np
+import seaborn           as sb
+import matplotlib.pyplot as mp
 
 from itertools                 import chain
 from math                      import log, ceil
@@ -51,6 +52,11 @@ class Common(object):
 
     def setupSpark(application = 'w261', memory = '220G'):
 
+        """
+        Setup Spark session.
+        Use maximum memory available on the driver.
+        """
+        
         timePrint('Starting Spark Initialization')
 
         Common.spark = SparkSession.builder \
@@ -61,6 +67,14 @@ class Common(object):
         timePrint('Stopping Spark Initialization\n')
 
     def importData(location: str = 'data', clean: bool = False):
+
+        """
+        Import raw tab seperated data 'train.csv' (zipped and renamed to whole.zip)
+        Specify schema for the 40 columns, 1 label, 13 numerical features, and 26 categorical features.
+        
+        Input  : TSV Data in Row format.
+        Output : Parquet DataFrame in Columnar format.
+        """
 
         timePrint('Starting Data Import')
         
@@ -95,6 +109,13 @@ class Common(object):
 
     def splitsData(ratios = [0.8, 0.1, 0.1]):
 
+        """
+        Split the original whole dataset into Train, Tests, and Valid subsets.
+        
+        Input  : Whole Parquet File
+        Output : Train, Tests, and Valid Parquet Files
+        """
+        
         timePrint("Starting Data Splits")
 
         splits = {}
@@ -111,14 +132,22 @@ class Common(object):
 
         timePrint('Stopping Data Splits\n')
 
-    def imp(subset, step):
+    def imp(subset, step = ''):
+
+        """
+        Helper utility to import Spark SQL DataFrame.
+        """
         
-        df = Common.spark.read.parquet(f'data/{subset}.parquet.{step}')
+        df = Common.spark.read.parquet(f'data/{subset}.parquet.{step}'.strip('.'))
         
         return df
 
     def pdf(path, rows = 20, filter = ''):
-        
+
+        """
+        Helper utility to import Pandas DataFrame.
+        """
+
         df = Common.spark.read.parquet(path)
         
         if  filter:

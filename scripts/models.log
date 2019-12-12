@@ -1,0 +1,49 @@
+[22:26:26] : Starting Spark Initialization
+[22:26:27] : Stopping Spark Initialization
+
+[22:26:27] : Starting Data Import
+[22:26:27] : Stopping Data Import
+
+[22:26:27] : 
+[22:26:27] : ========================================================================================================================
+[22:26:27] : 
+[22:26:27] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[22:26:27] : LogisticRegression : Weight : False
+[22:26:27] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.0, 'elasticNetParam': 0, 'family': 'binomial'}
+[22:26:32] : LogisticRegression :  Width : 1000 Features
+[22:29:53] : LogisticRegression :  Elaps : 201.6 Seconds
+[22:29:53] : LogisticRegression :  Train : Score = 73.64%
+[22:29:53] : LogisticRegression :  Tests : Score = 73.65%
+[22:29:53] : LogisticRegression :  Valid : Score = 73.63%
+[22:29:53] : 
+[22:29:53] : ========================================================================================================================
+[22:29:53] : 
+[22:29:53] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[22:29:53] : LogisticRegression : Weight : False
+[22:29:53] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.1, 'elasticNetParam': 0, 'family': 'binomial'}
+[22:29:54] : LogisticRegression :  Width : 1000 Features
+[22:32:24] : LogisticRegression :  Elaps : 150.1 Seconds
+[22:32:24] : LogisticRegression :  Train : Score = 72.63%
+[22:32:24] : LogisticRegression :  Tests : Score = 72.64%
+[22:32:24] : LogisticRegression :  Valid : Score = 72.63%
+[22:32:24] : 
+[22:32:24] : ========================================================================================================================
+[22:32:24] : 
+[22:32:24] : LogisticRegression : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[22:32:24] : LogisticRegression : Weight : False
+[22:32:24] : LogisticRegression : Params : {'maxIter': 100, 'regParam': 0.5, 'elasticNetParam': 1, 'family': 'multinomial'}
+[22:32:24] : LogisticRegression :  Width : 1000 Features
+[22:33:21] : LogisticRegression :  Elaps : 56.4 Seconds
+[22:33:21] : LogisticRegression :  Train : Score = 50.00%
+[22:33:21] : LogisticRegression :  Tests : Score = 50.00%
+[22:33:21] : LogisticRegression :  Valid : Score = 50.00%
+[22:42:07] : ========================================================================================================================
+[22:42:07] : 
+[22:42:07] : LinearSVC : Frames : normed.masked-060000.encode.picked-000987.packed-001000
+[22:42:07] : LinearSVC : Weight : False
+[22:42:07] : LinearSVC : Params : {'maxIter': 100, 'regParam': 0.0}
+[22:42:12] : LinearSVC :  Width : 1000 Features
+[23:46:34] : LinearSVC :  Elaps : 3862.5 Seconds
+[23:46:34] : LinearSVC :  Train : Score = 68.69%
+[23:46:34] : LinearSVC :  Tests : Score = 68.70%
+[23:46:34] : LinearSVC :  Valid : Score = 68.64%

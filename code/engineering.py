@@ -9,6 +9,12 @@ class Engineering(Common):
 
     def stepStarting(step: str, message: str, subset: str, iStep: str = '', fit:bool = False, model: str = '') -> DataFrame:
 
+        """
+        Common helper function for feature engineering steps.
+        Loads the input data frame and skips calling step if the output data frame already exists.
+        Tags order of processing by tracking previous operations using breadcrumb naming strategy.
+        """
+
         global iFile, oFile, oStep, oPipe
 
         iFile = f'{Common.prefix}/{subset}.parquet.{iStep}'.strip('.')
@@ -62,6 +68,11 @@ class Engineering(Common):
 
     def stepStopping(step: str, message: str, subset: str, oData: DataFrame = None):
 
+        """
+        Common helper function for feature engineering steps.
+        Transforms and writes output of feature engineering step.
+        """
+        
         global iFile, oFile, oStep, oPipe
 
         if  oData != None and not exists(oFile):
@@ -71,6 +82,7 @@ class Engineering(Common):
         timePrint(f'Stopping {message} : oFile = {oFile}\n')
     
     def numDoMeasurement(subset: str, iStep: str):
+
         """
         Calculate descriptive stats on training data for use in standardization
         Input  : Raw training dataframe
@@ -105,6 +117,7 @@ class Engineering(Common):
         Engineering.stepStopping('', 'Numerical Data Measurement', subset, oData)
         
     def allDoStandardize(subset: str, iStep: str):
+
         """
         Apply standardizations to all numerical features to ensure numerical features have balanced weights.
         Replace all undefined categorical values with deadbeef.
@@ -122,7 +135,7 @@ class Engineering(Common):
 
             num_measures = Common.num_measures.to_dict()
 
-          # replace all undefined values with the median for that feature
+          # replace all undefined numerical values with the median for that feature
             oData = iData.fillna(num_measures['median'])
             
           # add standardized numerical feature columns  
@@ -147,15 +160,20 @@ class Engineering(Common):
             model         = pipeline.fit(oData)
 
             oData         = model.transform(oData)
-            oData         = oData.select('label', 'std_features', *Common.cat_features).fillna('deadbeef', Common.cat_features)
+            oData         = oData.select('label', 'std_features', *Common.cat_features)
+            
+          # replace all undefined categorical values with special term deadbeef
+            oData         = oData.fillna('deadbeef', Common.cat_features)
 
         Engineering.stepStopping('normed', 'Numerical Data Standardize', subset, oData)
 
     def catDoMeasurement(subset: str, iStep: str):
+
         """
-        Calculate descriptive stats on training data for use in standardization
-        Input  : Raw training dataframe
-        Output : Categorical training stats
+        Calculate frequency stats on training data for use in standardization.
+
+        Input  : Raw training dataframe.
+        Output : Categorical training stats.
         """    
 
         global iFile, oFile, oStep, oPipe
@@ -182,6 +200,14 @@ class Engineering(Common):
         Engineering.stepStopping('', 'Categorical Data Measures ', subset, oData)
         
     def catMaskUncommons(subset: str, iStep: str, min: int):
+        """
+        Mask uncommon categorical feature categories.
+        This greatly reduces the number of one-hot encoded features.
+        The features in test/valid which were not also in train will be masked as well.
+
+        Input  : Categorical features with Undefined values replaced with a special term : deadbeef. Categorical feature frequency stats.
+        Output : Categorical features with Infrequent values replaced with a special term : rarebeef.
+        """
 
         global iFile, oFile, oStep, oPipe
 
@@ -192,11 +218,14 @@ class Engineering(Common):
 
             oData  = iData
 
-            """
-            for feature, uncommon_categories in Common.cat_measures['uncommon'].items():
-                oData = oData.replace(uncommon_categories, 'rarebeef')
-            """
+          # for feature, uncommon_categories in Common.cat_measures['uncommon'].items():
+          #     oData = oData.replace(uncommon_categories, 'rarebeef')
 
+            """
+            By using not matching list of frequent categories instead of matching a much longer list of infrequent categories we can
+            significantly improve the processing time required on the full dataset
+            """
+            
             total = 0
             
             for feature, measure in Common.cat_measures.items():
@@ -212,6 +241,16 @@ class Engineering(Common):
 
     def catDoCodeFeature(subset: str, iStep: str, min: int, fit: bool = False):
 
+        """
+        Index and encode all categorical features.
+        Generates indicator features for each distinct category withing each respective categorical feature.
+        Assemble the one-hot encoded indicators to a categorical feature vector.
+        Encoding estimator will be trained on the train set and any features in the test/train that are not present will be dropped.
+        
+        Input  : Categorical features with Infrequent values reduced.
+        Output : Indicator features for each distinct category assembled into a SparseVector.
+        """
+        
         global iFile, oFile, oStep, oPipe
 
         oData = None
@@ -220,6 +259,10 @@ class Engineering(Common):
         if  fit and not exists(oPipe) and iData != None:
             
             timePrint(f'Building Model : {oPipe}')
+            
+            """
+            Use a Spark ML pipeline to chain multiple transformation operations.
+            """
            
             stages   = []
             indexes  = [f'{f}_idx' for f in Common.cat_features]
@@ -251,6 +294,14 @@ class Engineering(Common):
 
     def catDoPickFeature(subset: str, iStep: str, top: int, fit: bool = False):
 
+        """
+        Use Chi-Square test to select the top N encoded categorical features.
+        Assemble picked features into a new vector.
+        
+        Input  : The one-hot encoded categorical features in cat_features SparseVector.
+        Output : The top N categorical features in top_features SparseVector.
+        """
+        
         global iFile, oFile, oStep, oPipe
 
         oData = None
@@ -262,6 +313,10 @@ class Engineering(Common):
 
         if  fit and not exists(oPipe) and iData != None and top:
 
+            """
+            Perform the Chi-Square test on the training dataset to select the highest N correlated features.
+            """
+            
             timePrint(f'Building Model : {oPipe}')
             
             selector       = ChiSqSelector(numTopFeatures = top, featuresCol = 'cat_features', outputCol = 'top_features', labelCol = 'label')
@@ -281,6 +336,14 @@ class Engineering(Common):
         Engineering.stepStopping(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, oData)
 
     def allDoPackFeature(subset: str, iStep: str, fit: bool = False):
+
+        """
+        Assemble all features into a single feature vector for training.
+        Add a weight column to compensate for inbalanced class distribution based on the train set.
+        
+        Input  : Engineering features and label.
+        Output : Dataframe with label, feature vector, and weight columns.
+        """
         
         global iFile, oFile, oStep, oPipe
 
@@ -288,6 +351,10 @@ class Engineering(Common):
         iData = Engineering.stepStarting('packed', 'Packed Final Features', subset, iStep, fit, 'balance_rate')
         width = None
 
+        """
+        Balance the data based on training dataset class distribution.
+        """
+        
         if  fit and not exists(oPipe) and iData != None:
 
             total        = iData.count()
@@ -299,7 +366,12 @@ class Engineering(Common):
         Common.balance_rate = load(open(oPipe, 'rb'))
 
         if  iData != None:
-            
+
+            """
+            Pick from standardized numerical features, selected encoded categorical features OR encoded categorical features
+            numerical vs categorical interaction features.
+            """
+
             features  = ['std_features']
             features += ['top_features'] if 'top_features' in iData.columns else \
                         ['cat_features']
@@ -321,6 +393,10 @@ class Engineering(Common):
         Engineering.stepStopping('packed', 'Packed Final Features', subset, oData)
 
     def toyTakeSubSample(subset: str, iStep: str, len: int = 1000):
+        
+        """
+        Take a random toy sample for homegrown algorithm development.
+        """
         
         global iFile, oFile, oStep, oPipe
 

@@ -3,7 +3,6 @@ class Common {
     import org.apache.spark.sql.{SparkSession, DataFrame}
 
     import reflect.io._, Path._
-
     import scala.collection.mutable.HashMap
 
     val frames = new HashMap[String,DataFrame]()
@@ -18,15 +17,17 @@ class Common {
     val cat_uncommon = new HashMap[String,Array[Any]]()
     val cat_frequent = new HashMap[String,Array[Any]]()
     val cat_distinct = new HashMap[String,Array[Any]]()
+
+    var num_measures: DataFrame = null
+    var cat_measures: DataFrame = null
     
     def timePrint(message: String) {
         
-     // import java.time.format.DateTimeFormatter
         var timeStamp = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").format(java.time.LocalDateTime.now)
         println(f"${timeStamp} : ${message}")
     }
    
-    def setupSpark(application: String = "w261", master: String = "local[*]", memory: String = "240G") {
+    def setupSpark(application: String = "w261", master: String = "local[*]", memory: String = "220G") {
 
         import org.apache.spark.{SparkContext,SparkConf}
         
@@ -122,50 +123,54 @@ class Common {
     }
 }
 
-object Engineering extends Common {
+object Interaction extends Common {
   
     import org.apache.spark.ml.{Pipeline, PipelineModel}
     import org.apache.spark.ml.feature.{ChiSqSelector, Interaction, VectorAssembler, Imputer, StandardScaler}
     import org.apache.spark.sql.{DataFrame}
+    import org.apache.spark.ml.linalg.{SparseVector,DenseVector}
     import org.apache.spark.sql.functions.{col}
 
     import reflect.io._, Path._
+    import sys.process._
 
-    var iFrame: String = null
-    var oStage: String = null
-    var oFrame: String = null
-    var oModel: String = null
+    var iFile: String = null
+    var oStep: String = null
+    var oFile: String = null
+    var oPipe: String = null
     
-    var num_measures: DataFrame = null
-    var cat_measures: DataFrame = null
-
-    def taskStarting(stage: String, message: String, subset: String, iStage: String): DataFrame = {
+    def taskStarting(step: String, message: String, subset: String, iStep: String): DataFrame = {
     
-        iFrame = f"$prefix/$subset.parquet.$iStage"
-        oStage = f"$iStage.$stage"
-        oFrame = f"$prefix/$subset.parquet.$oStage"
-        oModel = f"$prefix/model.pickled.$oStage"
+        iFile = f"$prefix/$subset.parquet.$iStep"
+        oStep = f"$iStep.$step"
+        oFile = f"$prefix/$subset.parquet.$oStep"
+        oPipe = f"$prefix/model.pickled.$oStep"
 
-        timePrint(f"Starting $message : iFrame = $iFrame")
+        timePrint(f"Starting $message : iFile = $iFile")
         
-        if (iFrame.toDirectory.exists && !oFrame.toDirectory.exists) {
+        if (iFile.toDirectory.exists && !f"${iFile}/_SUCCESS".toFile.exists) {
+            f"rm -rf ${iFile}" !
+        }
 
-            return spark.read.parquet(iFrame)
+        if (oFile.toDirectory.exists && !f"${oFile}/_SUCCESS".toFile.exists) {
+            f"rm -rf ${oFile}" !
+        }
+        
+        if (iFile.toDirectory.exists && !oFile.toDirectory.exists) {
+            return spark.read.parquet(iFile)
         }
         else {
-            
             return null
         }
     }
 
-    def taskStopping(stage: String, message: String, subset: String, oData: DataFrame) {
+    def taskStopping(step: String, message: String, subset: String, oData: DataFrame) {
 
-        if (oData != null) {
-
-            oData.write.parquet(oFrame)
+        if (oData != null && !oFile.toDirectory.exists) {
+            oData.write.parquet(oFile)
         }
 
-        timePrint(f"Stopping $message : oFrame = $oFrame\n")
+        timePrint(f"Stopping $message : oFile = $oFile\n")
     }
     
     def numStandardize (subset: String, iStage: String, fit: Boolean = false) {
@@ -236,14 +241,21 @@ object Engineering extends Common {
         taskStopping(f"masked-$threshold", "Mask Uncommon Categories", subset, oData)
     }    
     
-    def allJoinInteract (subset: String, iStage: String) {
+    def allJoinInteract(subset: String, iStep: String) {
 
-        var iData: DataFrame = taskStarting("action", "Numerical vs Categorical Interactions", subset, iStage)
+        /*
+            This had to be written in Scala as PySpark implementation of SparkML interactions transformer was not available.
+            Add interactions between the categorical indicators and numerical features.
+            Use SparkML Interactions feature transformer to calculate the product of all 13 numerical features with the arbitary number of categorical indicators.
+            
+            Input  : std_features and cat_features
+            Output : cxn_features SparseVector
+        */
+        
+        var iData: DataFrame = taskStarting("action", "Numerical vs Categorical Interactions", subset, iStep)
         var oData: DataFrame = null
         
         if (iData != null) {
-            
-            
             val interaction = new Interaction()
                 .setInputCols(Array("std_features", "cat_features"))
                 .setOutputCol("cxn_features")
@@ -254,17 +266,24 @@ object Engineering extends Common {
         taskStopping("action", "Numerical vs Categorical Interactions", subset, oData)
     }
 
-    def allPackFeatures (subset: String, iStage: String) {
+    def allPackFeatures(subset: String, iStep: String) {
 
-        var iData: DataFrame = taskStarting("packed", "Final Feature Pack", subset, iStage)
+        var iData: DataFrame = taskStarting("packed", "Final Feature Pack", subset, iStep)
         var oData: DataFrame = null
+        var width: Int       = 0
         
         if (iData != null) {
             val assembler = new VectorAssembler()
-                .setInputCols(Array("std_features", "top_features", "cxn_features"))
+                .setInputCols(Array("std_features", "cat_features", "cxn_features"))
                 .setOutputCol("features")
             
             oData = assembler.transform(iData)
+
+            width = oData.first().getAs[SparseVector]("features").size
+
+            oFile = f"${oFile}-${width}%06d"
+            
+            timePrint(f"Final Feature Count = ${width}")
         }
 
         taskStopping("packed", "Final Feature Pack", subset, oData)
