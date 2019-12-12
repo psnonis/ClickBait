@@ -9,6 +9,13 @@ from pyspark.ml.evaluation     import MulticlassClassificationEvaluator
 class Evaluation(Common):
 
     def eval(estimator, evaluator, dataframe = 'normed.filled.masked-180000.encode.picked-000300.packed', features = 'features', weighting = False, **params):
+        
+        """
+        Evaluate model performance on Train, Test, and Validation subsets.
+        
+        Input  : Estimator, Evaluator, Engineered Dataset.
+        Output : AUC on Respective Subset.
+        """
 
         timePrint('')
         timePrint('=' * 120)
