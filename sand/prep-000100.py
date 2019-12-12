@@ -2,7 +2,7 @@ from code.engineering import *
 
 Engineering.setupSpark(application = 'prep')
 
-min = 500
+min = 100
 top = None
 
 Engineering.numDoMeasurement(subset = 'train', iStep = f'')
