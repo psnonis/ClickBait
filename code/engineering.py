@@ -215,7 +215,7 @@ class Engineering(Common):
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, f'encodingPipe-{min:06d}')
+        iData = Engineering.stepStarting('encode', 'Categorical One-Hot Encoding', subset, iStep, fit, f'encodingPipes-{min:06d}')
 
         if  fit and not exists(oPipe) and iData != None:
             
@@ -254,7 +254,7 @@ class Engineering(Common):
         global iFile, oFile, oStep, oPipe
 
         oData = None
-        iData = Engineering.stepStarting(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, iStep, fit, f'selectingPipe-{top:06d}')
+        iData = Engineering.stepStarting(f'picked-{top:06d}', f'Categorical Selection for Top {top} Features', subset, iStep, fit, f'selectingPipes-{top:06d}')
 
         width = iData.select('cat_features').first().cat_features.size
 

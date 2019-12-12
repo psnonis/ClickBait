@@ -103,7 +103,7 @@ object Interaction extends Common {
         
         if (iData != null) {
             val assembler = new VectorAssembler()
-                .setInputCols(Array("std_features", "cxn_features"))
+                .setInputCols(Array("std_features", "cat_features", "cxn_features"))
                 .setOutputCol("features")
             
             oData = assembler.transform(iData)
@@ -112,7 +112,7 @@ object Interaction extends Common {
 
             oFile = f"${oFile}-${width}%06d"
             
-            timePrint("Final Feature Count = ${width}")
+            timePrint(f"Final Feature Count = ${width}")
         }
 
         taskStopping("packed", "Final Feature Pack", subset, oData)
